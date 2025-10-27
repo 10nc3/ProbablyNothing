@@ -4,6 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Trust proxy to get correct protocol from X-Forwarded-Proto
+app.set('trust proxy', true);
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -14,7 +17,12 @@ app.use(express.json({
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ 
+  extended: false,
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();

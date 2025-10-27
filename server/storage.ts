@@ -72,6 +72,7 @@ export class MemStorage implements IStorage {
         calendarAccessToken: insertConfig.calendarAccessToken ?? existing.calendarAccessToken,
         pollingInterval: insertConfig.pollingInterval || "5",
         isActive: insertConfig.isActive ?? false,
+        useWebhook: insertConfig.useWebhook ?? false,
         updatedAt: new Date(),
       };
       this.configurations.set(existing.id, updated);
@@ -90,6 +91,7 @@ export class MemStorage implements IStorage {
       calendarAccessToken: insertConfig.calendarAccessToken ?? null,
       pollingInterval: insertConfig.pollingInterval || "5",
       isActive: insertConfig.isActive ?? false,
+      useWebhook: insertConfig.useWebhook ?? false,
       updatedAt: new Date(),
     };
     this.configurations.set(id, config);
@@ -221,6 +223,7 @@ export class DbStorage implements IStorage {
           calendarAccessToken: insertConfig.calendarAccessToken ?? existing.calendarAccessToken,
           pollingInterval: insertConfig.pollingInterval || existing.pollingInterval,
           isActive: insertConfig.isActive ?? existing.isActive,
+          useWebhook: insertConfig.useWebhook ?? existing.useWebhook,
           updatedAt: new Date(),
         })
         .where(eq(configurations.id, existing.id))
@@ -240,6 +243,7 @@ export class DbStorage implements IStorage {
         calendarAccessToken: insertConfig.calendarAccessToken ?? null,
         pollingInterval: insertConfig.pollingInterval || "5",
         isActive: insertConfig.isActive ?? false,
+        useWebhook: insertConfig.useWebhook ?? false,
       })
       .returning();
     return inserted[0];

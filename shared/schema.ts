@@ -21,6 +21,7 @@ export const configurations = pgTable("configurations", {
   // Bot settings
   pollingInterval: text("polling_interval").notNull().default("5"), // minutes
   isActive: boolean("is_active").notNull().default(false),
+  useWebhook: boolean("use_webhook").notNull().default(false), // true for webhook, false for polling
   
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
