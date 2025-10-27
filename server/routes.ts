@@ -36,12 +36,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/configuration", async (req, res) => {
     try {
       const validated = insertConfigurationSchema.parse(req.body);
+      const previousConfig = await storage.getConfiguration("default");
       const config = await storage.upsertConfiguration(validated);
       
-      // Restart processing if configuration changed
-      if (config.isActive) {
+      // Restart processing if bot is active or if polling interval changed
+      const shouldRestart = config.isActive && (
+        !previousConfig || 
+        previousConfig.pollingInterval !== config.pollingInterval ||
+        !previousConfig.isActive
+      );
+      
+      if (shouldRestart) {
         await startProcessing(config);
-      } else {
+      } else if (!config.isActive) {
         stopProcessing();
       }
       
@@ -118,6 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
+let isProcessing = false;
+
 async function startProcessing(config: any) {
   stopProcessing();
   
@@ -129,9 +138,18 @@ async function startProcessing(config: any) {
   // Process immediately on start
   processMessages(config).catch(console.error);
   
-  // Then schedule recurring processing
+  // Then schedule recurring processing with fresh config each time
   processingInterval = setInterval(() => {
-    processMessages(config).catch(console.error);
+    (async () => {
+      try {
+        const freshConfig = await storage.getConfiguration("default");
+        if (freshConfig && freshConfig.isActive) {
+          processMessages(freshConfig).catch(console.error);
+        }
+      } catch (error) {
+        console.error("Error fetching configuration in polling interval:", error);
+      }
+    })();
   }, intervalMs);
 }
 
@@ -144,6 +162,13 @@ function stopProcessing() {
 }
 
 async function processMessages(config: any) {
+  // Guard against overlapping executions
+  if (isProcessing) {
+    console.log("Processing already in progress, skipping this run");
+    return;
+  }
+  
+  isProcessing = true;
   try {
     console.log("Processing WhatsApp messages...");
     
@@ -223,5 +248,7 @@ async function processMessages(config: any) {
     }
   } catch (error: any) {
     console.error("Error processing messages:", error.message);
+  } finally {
+    isProcessing = false;
   }
 }
