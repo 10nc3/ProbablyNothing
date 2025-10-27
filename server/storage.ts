@@ -7,8 +7,13 @@ import {
   type InsertCalendarEvent,
   type MessageWithEvent,
   type ProcessingStatus,
+  configurations,
+  whatsappMessages,
+  calendarEvents,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Configuration
@@ -148,12 +153,15 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const event: CalendarEvent = {
       id,
-      ...insertEvent,
+      messageId: insertEvent.messageId,
+      title: insertEvent.title,
+      startTime: insertEvent.startTime,
       endTime: insertEvent.endTime || null,
       location: insertEvent.location || null,
       description: insertEvent.description || null,
       attendees: insertEvent.attendees || null,
       externalEventId: insertEvent.externalEventId || null,
+      calendarService: insertEvent.calendarService,
       createdAt: new Date(),
     };
     this.events.set(id, event);
@@ -186,4 +194,160 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DbStorage implements IStorage {
+  private lastChecked?: Date;
+
+  async getConfiguration(userId: string): Promise<Configuration | undefined> {
+    const result = await db
+      .select()
+      .from(configurations)
+      .where(eq(configurations.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async upsertConfiguration(insertConfig: InsertConfiguration): Promise<Configuration> {
+    const existing = await this.getConfiguration(insertConfig.userId || "default");
+    
+    if (existing) {
+      const updated = await db
+        .update(configurations)
+        .set({
+          twilioAccountSid: insertConfig.twilioAccountSid ?? existing.twilioAccountSid,
+          twilioAuthToken: insertConfig.twilioAuthToken ?? existing.twilioAuthToken,
+          twilioWhatsappNumber: insertConfig.twilioWhatsappNumber ?? existing.twilioWhatsappNumber,
+          calendarService: insertConfig.calendarService || existing.calendarService,
+          calendarEndpoint: insertConfig.calendarEndpoint ?? existing.calendarEndpoint,
+          calendarAccessToken: insertConfig.calendarAccessToken ?? existing.calendarAccessToken,
+          pollingInterval: insertConfig.pollingInterval || existing.pollingInterval,
+          isActive: insertConfig.isActive ?? existing.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(configurations.id, existing.id))
+        .returning();
+      return updated[0];
+    }
+    
+    const inserted = await db
+      .insert(configurations)
+      .values({
+        userId: insertConfig.userId || "default",
+        twilioAccountSid: insertConfig.twilioAccountSid ?? null,
+        twilioAuthToken: insertConfig.twilioAuthToken ?? null,
+        twilioWhatsappNumber: insertConfig.twilioWhatsappNumber ?? null,
+        calendarService: insertConfig.calendarService || "google",
+        calendarEndpoint: insertConfig.calendarEndpoint ?? null,
+        calendarAccessToken: insertConfig.calendarAccessToken ?? null,
+        pollingInterval: insertConfig.pollingInterval || "5",
+        isActive: insertConfig.isActive ?? false,
+      })
+      .returning();
+    return inserted[0];
+  }
+
+  async getMessages(limit: number = 50): Promise<MessageWithEvent[]> {
+    const messages = await db
+      .select()
+      .from(whatsappMessages)
+      .orderBy(desc(whatsappMessages.receivedAt))
+      .limit(limit);
+
+    return Promise.all(
+      messages.map(async (message: WhatsappMessage) => {
+        const events = await this.getEventsByMessageId(message.id);
+        return {
+          ...message,
+          event: events[0],
+        };
+      })
+    );
+  }
+
+  async getMessageByMessageId(messageId: string): Promise<WhatsappMessage | undefined> {
+    const result = await db
+      .select()
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.messageId, messageId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createMessage(insertMessage: InsertWhatsappMessage): Promise<WhatsappMessage> {
+    const inserted = await db
+      .insert(whatsappMessages)
+      .values({
+        messageId: insertMessage.messageId,
+        from: insertMessage.from,
+        body: insertMessage.body,
+        receivedAt: insertMessage.receivedAt,
+        processedAt: insertMessage.processedAt || null,
+        status: insertMessage.status || "pending",
+        errorMessage: insertMessage.errorMessage || null,
+      })
+      .returning();
+    return inserted[0];
+  }
+
+  async updateMessageStatus(
+    id: string,
+    status: string,
+    processedAt?: Date,
+    errorMessage?: string
+  ): Promise<void> {
+    await db
+      .update(whatsappMessages)
+      .set({
+        status,
+        processedAt: processedAt || null,
+        errorMessage: errorMessage || null,
+      })
+      .where(eq(whatsappMessages.id, id));
+  }
+
+  async createCalendarEvent(insertEvent: InsertCalendarEvent): Promise<CalendarEvent> {
+    const inserted = await db
+      .insert(calendarEvents)
+      .values({
+        messageId: insertEvent.messageId,
+        title: insertEvent.title,
+        startTime: insertEvent.startTime,
+        endTime: insertEvent.endTime || null,
+        location: insertEvent.location || null,
+        description: insertEvent.description || null,
+        attendees: insertEvent.attendees || null,
+        externalEventId: insertEvent.externalEventId || null,
+        calendarService: insertEvent.calendarService,
+      })
+      .returning();
+    return inserted[0];
+  }
+
+  async getEventsByMessageId(messageId: string): Promise<CalendarEvent[]> {
+    return db
+      .select()
+      .from(calendarEvents)
+      .where(eq(calendarEvents.messageId, messageId));
+  }
+
+  async getProcessingStatus(): Promise<ProcessingStatus> {
+    const allMessages = await db.select().from(whatsappMessages);
+    const processedMessages = allMessages.filter((m: WhatsappMessage) => m.status === "processed");
+    const failedMessages = allMessages.filter((m: WhatsappMessage) => m.status === "failed");
+    const allEvents = await db.select().from(calendarEvents);
+    const config = await this.getConfiguration("default");
+
+    return {
+      isActive: config?.isActive ?? false,
+      lastChecked: this.lastChecked?.toISOString(),
+      messagesProcessed: processedMessages.length,
+      eventsCreated: allEvents.length,
+      errors: failedMessages.length,
+    };
+  }
+
+  setLastChecked(date: Date): void {
+    this.lastChecked = date;
+  }
+}
+
+export const storage = new DbStorage();
