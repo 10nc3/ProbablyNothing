@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createHmac } from "crypto";
 import { storage } from "./storage";
 import { insertConfigurationSchema, insertWhatsappMessageSchema, insertCalendarEventSchema } from "@shared/schema";
 import { parseInviteMessage } from "./openai";
@@ -39,16 +40,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const previousConfig = await storage.getConfiguration("default");
       const config = await storage.upsertConfiguration(validated);
       
-      // Restart processing if bot is active or if polling interval changed
-      const shouldRestart = config.isActive && (
+      // Handle polling mode: restart if active and not using webhooks
+      const shouldRestart = config.isActive && !config.useWebhook && (
         !previousConfig || 
         previousConfig.pollingInterval !== config.pollingInterval ||
+        previousConfig.useWebhook !== config.useWebhook ||
         !previousConfig.isActive
       );
       
       if (shouldRestart) {
         await startProcessing(config);
-      } else if (!config.isActive) {
+      } else if (!config.isActive || config.useWebhook) {
+        // Stop polling if bot is inactive or switched to webhook mode
         stopProcessing();
       }
       
@@ -115,9 +118,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Start automatic processing if configured
+  // Twilio webhook endpoint for real-time message notifications
+  app.post("/api/webhooks/twilio", async (req, res) => {
+    try {
+      const config = await storage.getConfiguration("default");
+      
+      if (!config || !config.twilioAuthToken) {
+        res.status(403).send("Forbidden");
+        return;
+      }
+      
+      // Verify Twilio signature using raw body
+      const twilioSignature = req.get("X-Twilio-Signature") || "";
+      const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+      const rawBody = (req as any).rawBody ? (req as any).rawBody.toString("utf-8") : "";
+      
+      if (!verifyTwilioSignature(config.twilioAuthToken, url, rawBody, twilioSignature)) {
+        console.log("Invalid Twilio signature");
+        res.status(403).send("Forbidden");
+        return;
+      }
+      
+      // Return TwiML response immediately
+      res.set("Content-Type", "text/xml");
+      res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+      
+      // Process webhook asynchronously
+      if (!config.isActive || !config.useWebhook) {
+        console.log("Webhook received but bot not configured for webhook mode");
+        return;
+      }
+      
+      // Extract Twilio message data from webhook payload
+      const { MessageSid, From, Body, DateCreated } = req.body;
+      
+      if (!MessageSid || !From || !Body) {
+        console.log("Invalid webhook payload:", req.body);
+        return;
+      }
+      
+      // Check if message already exists
+      const existing = await storage.getMessageByMessageId(MessageSid);
+      if (existing) {
+        console.log(`Message ${MessageSid} already processed, skipping`);
+        return;
+      }
+      
+      // Create message record
+      const message = await storage.createMessage({
+        messageId: MessageSid,
+        from: From,
+        body: Body,
+        receivedAt: DateCreated ? new Date(DateCreated) : new Date(),
+        processedAt: null,
+        status: "pending",
+        errorMessage: null,
+      });
+      
+      // Process the message
+      processSingleMessage(message, config).catch((error) => {
+        console.error(`Failed to process webhook message ${message.id}:`, error);
+      });
+      
+    } catch (error: any) {
+      console.error("Error handling Twilio webhook:", error.message);
+      // Don't send error response since we already sent TwiML
+    }
+  });
+
+  // Start automatic processing if configured for polling mode
   const config = await storage.getConfiguration("default");
-  if (config?.isActive) {
+  if (config?.isActive && !config.useWebhook) {
     await startProcessing(config);
   }
 
@@ -207,48 +278,87 @@ async function processMessages(config: any) {
         errorMessage: null,
       });
       
-      try {
-        // Parse invite using AI
-        console.log(`Parsing message ${message.id}...`);
-        const invite = await parseInviteMessage(twilioMsg.body);
-        
-        // Create calendar event
-        console.log(`Creating calendar event for message ${message.id}...`);
-        const externalEventId = await createCalendarEvent(invite, {
-          service: config.calendarService,
-          endpoint: config.calendarEndpoint,
-          accessToken: config.calendarAccessToken,
-        });
-        
-        // Store event in database
-        await storage.createCalendarEvent({
-          messageId: message.id,
-          title: invite.title,
-          startTime: new Date(invite.startTime),
-          endTime: invite.endTime ? new Date(invite.endTime) : null,
-          location: invite.location || null,
-          description: invite.description || null,
-          attendees: invite.attendees || null,
-          externalEventId,
-          calendarService: config.calendarService,
-        });
-        
-        // Update message status
-        await storage.updateMessageStatus(message.id, "processed", new Date());
-        console.log(`Successfully processed message ${message.id}`);
-      } catch (error: any) {
-        console.error(`Failed to process message ${message.id}:`, error.message);
-        await storage.updateMessageStatus(
-          message.id,
-          "failed",
-          new Date(),
-          error.message
-        );
-      }
+      await processSingleMessage(message, config);
     }
   } catch (error: any) {
     console.error("Error processing messages:", error.message);
   } finally {
     isProcessing = false;
+  }
+}
+
+function verifyTwilioSignature(
+  authToken: string,
+  url: string,
+  rawBody: string,
+  signature: string
+): boolean {
+  // Twilio signature validation using raw URL-encoded body
+  // Parse the raw body to get form params
+  const params = new URLSearchParams(rawBody);
+  const sortedParams: string[] = [];
+  
+  // Sort and concatenate params with URL
+  Array.from(params.keys()).sort().forEach((key) => {
+    sortedParams.push(key + params.get(key));
+  });
+  
+  const data = url + sortedParams.join("");
+  
+  // Create HMAC-SHA1 hash
+  const hmac = createHmac("sha1", authToken);
+  hmac.update(data, "utf-8");
+  const expectedSignature = hmac.digest("base64");
+  
+  // Use timing-safe comparison
+  const crypto = require("crypto");
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function processSingleMessage(message: any, config: any) {
+  try {
+    // Parse invite using AI
+    console.log(`Parsing message ${message.id}...`);
+    const invite = await parseInviteMessage(message.body);
+    
+    // Create calendar event
+    console.log(`Creating calendar event for message ${message.id}...`);
+    const externalEventId = await createCalendarEvent(invite, {
+      service: config.calendarService,
+      endpoint: config.calendarEndpoint,
+      accessToken: config.calendarAccessToken,
+    });
+    
+    // Store event in database
+    await storage.createCalendarEvent({
+      messageId: message.id,
+      title: invite.title,
+      startTime: new Date(invite.startTime),
+      endTime: invite.endTime ? new Date(invite.endTime) : null,
+      location: invite.location || null,
+      description: invite.description || null,
+      attendees: invite.attendees || null,
+      externalEventId,
+      calendarService: config.calendarService,
+    });
+    
+    // Update message status
+    await storage.updateMessageStatus(message.id, "processed", new Date());
+    console.log(`Successfully processed message ${message.id}`);
+  } catch (error: any) {
+    console.error(`Failed to process message ${message.id}:`, error.message);
+    await storage.updateMessageStatus(
+      message.id,
+      "failed",
+      new Date(),
+      error.message
+    );
   }
 }
