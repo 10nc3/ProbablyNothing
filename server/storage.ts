@@ -53,20 +53,20 @@ export class MemStorage implements IStorage {
   }
 
   async upsertConfiguration(insertConfig: InsertConfiguration): Promise<Configuration> {
-    const existing = await this.getConfiguration(insertConfig.userId);
+    const existing = await this.getConfiguration(insertConfig.userId || "default");
     
     if (existing) {
       const updated: Configuration = {
         id: existing.id,
-        userId: insertConfig.userId,
+        userId: insertConfig.userId || "default",
         twilioAccountSid: insertConfig.twilioAccountSid ?? existing.twilioAccountSid,
         twilioAuthToken: insertConfig.twilioAuthToken ?? existing.twilioAuthToken,
         twilioWhatsappNumber: insertConfig.twilioWhatsappNumber ?? existing.twilioWhatsappNumber,
-        calendarService: insertConfig.calendarService ?? existing.calendarService,
+        calendarService: insertConfig.calendarService || "google",
         calendarEndpoint: insertConfig.calendarEndpoint ?? existing.calendarEndpoint,
         calendarAccessToken: insertConfig.calendarAccessToken ?? existing.calendarAccessToken,
-        pollingInterval: insertConfig.pollingInterval ?? existing.pollingInterval,
-        isActive: insertConfig.isActive ?? existing.isActive,
+        pollingInterval: insertConfig.pollingInterval || "5",
+        isActive: insertConfig.isActive ?? false,
         updatedAt: new Date(),
       };
       this.configurations.set(existing.id, updated);
@@ -76,15 +76,15 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const config: Configuration = {
       id,
-      userId: insertConfig.userId,
+      userId: insertConfig.userId || "default",
       twilioAccountSid: insertConfig.twilioAccountSid ?? null,
       twilioAuthToken: insertConfig.twilioAuthToken ?? null,
       twilioWhatsappNumber: insertConfig.twilioWhatsappNumber ?? null,
-      calendarService: insertConfig.calendarService,
+      calendarService: insertConfig.calendarService || "google",
       calendarEndpoint: insertConfig.calendarEndpoint ?? null,
       calendarAccessToken: insertConfig.calendarAccessToken ?? null,
-      pollingInterval: insertConfig.pollingInterval,
-      isActive: insertConfig.isActive,
+      pollingInterval: insertConfig.pollingInterval || "5",
+      isActive: insertConfig.isActive ?? false,
       updatedAt: new Date(),
     };
     this.configurations.set(id, config);
@@ -117,8 +117,12 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const message: WhatsappMessage = {
       id,
-      ...insertMessage,
+      messageId: insertMessage.messageId,
+      from: insertMessage.from,
+      body: insertMessage.body,
+      receivedAt: insertMessage.receivedAt,
       processedAt: insertMessage.processedAt || null,
+      status: insertMessage.status || "pending",
       errorMessage: insertMessage.errorMessage || null,
     };
     this.messages.set(id, message);
