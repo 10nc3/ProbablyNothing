@@ -38,6 +38,7 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
       pollingInterval: "5",
       isActive: false,
       useWebhook: false,
+      userTimezone: "UTC",
     },
   });
 
@@ -54,6 +55,7 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
       pollingInterval: config?.pollingInterval ?? "5",
       isActive: config?.isActive ?? false,
       useWebhook: config?.useWebhook ?? false,
+      userTimezone: config?.userTimezone ?? "UTC",
     });
   }, [config]);
 
@@ -427,6 +429,40 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
                 )}
               />
             )}
+
+            <FormField
+              control={form.control}
+              name="userTimezone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Timezone</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || "UTC"}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-timezone">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="UTC">UTC</SelectItem>
+                      <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                      <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                      <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                      <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                      <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                      <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                      <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                      <SelectItem value="Asia/Shanghai">Shanghai (CST)</SelectItem>
+                      <SelectItem value="Asia/Dubai">Dubai (GST)</SelectItem>
+                      <SelectItem value="Australia/Sydney">Sydney (AEDT)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Events will be converted to this timezone
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

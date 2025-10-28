@@ -73,6 +73,7 @@ export class MemStorage implements IStorage {
         pollingInterval: insertConfig.pollingInterval || "5",
         isActive: insertConfig.isActive ?? false,
         useWebhook: insertConfig.useWebhook ?? false,
+        userTimezone: insertConfig.userTimezone ?? existing.userTimezone ?? "UTC",
         updatedAt: new Date(),
       };
       this.configurations.set(existing.id, updated);
@@ -92,6 +93,7 @@ export class MemStorage implements IStorage {
       pollingInterval: insertConfig.pollingInterval || "5",
       isActive: insertConfig.isActive ?? false,
       useWebhook: insertConfig.useWebhook ?? false,
+      userTimezone: insertConfig.userTimezone ?? "UTC",
       updatedAt: new Date(),
     };
     this.configurations.set(id, config);
@@ -163,6 +165,7 @@ export class MemStorage implements IStorage {
       location: insertEvent.location || null,
       description: insertEvent.description || null,
       attendees: insertEvent.attendees || null,
+      detectedTimezone: insertEvent.detectedTimezone || null,
       externalEventId: insertEvent.externalEventId || null,
       calendarService: insertEvent.calendarService,
       createdAt: new Date(),
@@ -225,6 +228,7 @@ export class DbStorage implements IStorage {
           pollingInterval: insertConfig.pollingInterval || existing.pollingInterval,
           isActive: insertConfig.isActive ?? existing.isActive,
           useWebhook: insertConfig.useWebhook ?? existing.useWebhook,
+          userTimezone: insertConfig.userTimezone ?? existing.userTimezone ?? "UTC",
           updatedAt: new Date(),
         })
         .where(eq(configurations.id, existing.id))
@@ -245,6 +249,7 @@ export class DbStorage implements IStorage {
         pollingInterval: insertConfig.pollingInterval || "5",
         isActive: insertConfig.isActive ?? false,
         useWebhook: insertConfig.useWebhook ?? false,
+        userTimezone: insertConfig.userTimezone ?? "UTC",
       })
       .returning();
     return inserted[0];
