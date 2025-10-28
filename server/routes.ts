@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { createHmac } from "crypto";
 import { storage } from "./storage";
 import { insertConfigurationSchema, insertWhatsappMessageSchema, insertCalendarEventSchema } from "@shared/schema";
-import { parseInviteMessage } from "./openai";
-import { fetchWhatsAppMessages, testTwilioConnection } from "./twilio";
+import { parseInviteMessage, parseInviteMessages, generateConfirmationMessage } from "./openai";
+import { fetchWhatsAppMessages, testTwilioConnection, sendWhatsAppMessage } from "./twilio";
 import { createCalendarEvent } from "./calendar";
 
 let processingInterval: NodeJS.Timeout | null = null;
@@ -324,34 +324,82 @@ function verifyTwilioSignature(
 
 async function processSingleMessage(message: any, config: any) {
   try {
-    // Parse invite using AI
+    // Parse message for all events using batch-capable AI parser
     console.log(`Parsing message ${message.id}...`);
-    const invite = await parseInviteMessage(message.body);
+    const events = await parseInviteMessages(message.body);
     
-    // Create calendar event
-    console.log(`Creating calendar event for message ${message.id}...`);
-    const externalEventId = await createCalendarEvent(invite, {
-      service: config.calendarService,
-      endpoint: config.calendarEndpoint,
-      accessToken: config.calendarAccessToken,
-    });
+    console.log(`Found ${events.length} event(s) in message ${message.id}`);
     
-    // Store event in database
-    await storage.createCalendarEvent({
-      messageId: message.id,
-      title: invite.title,
-      startTime: new Date(invite.startTime),
-      endTime: invite.endTime ? new Date(invite.endTime) : null,
-      location: invite.location || null,
-      description: invite.description || null,
-      attendees: invite.attendees || null,
-      externalEventId,
-      calendarService: config.calendarService,
-    });
+    // Process each event
+    const createdEvents = [];
+    for (let i = 0; i < events.length; i++) {
+      const invite = events[i];
+      console.log(`Creating calendar event ${i + 1}/${events.length} for message ${message.id}...`);
+      
+      try {
+        // Create calendar event
+        const externalEventId = await createCalendarEvent(invite, {
+          service: config.calendarService,
+          endpoint: config.calendarEndpoint,
+          accessToken: config.calendarAccessToken,
+        });
+        
+        // Store event in database
+        const dbEvent = await storage.createCalendarEvent({
+          messageId: message.id,
+          title: invite.title,
+          startTime: new Date(invite.startTime),
+          endTime: invite.endTime ? new Date(invite.endTime) : null,
+          location: invite.location || null,
+          description: invite.description || null,
+          attendees: invite.attendees || null,
+          externalEventId,
+          calendarService: config.calendarService,
+        });
+        
+        createdEvents.push(invite);
+        console.log(`Created event ${i + 1}: ${invite.title}`);
+      } catch (eventError: any) {
+        console.error(`Failed to create event ${i + 1}:`, eventError.message);
+      }
+    }
     
-    // Update message status
-    await storage.updateMessageStatus(message.id, "processed", new Date());
-    console.log(`Successfully processed message ${message.id}`);
+    // Update message status if at least one event was created
+    if (createdEvents.length > 0) {
+      await storage.updateMessageStatus(message.id, "processed", new Date());
+      console.log(`Successfully processed message ${message.id} (${createdEvents.length}/${events.length} events created)`);
+      
+      // Generate and send confirmation message back to sender
+      try {
+        console.log(`Generating confirmation message for ${message.id}...`);
+        const confirmation = await generateConfirmationMessage(createdEvents);
+        
+        const sendResult = await sendWhatsAppMessage(
+          {
+            accountSid: config.twilioAccountSid,
+            authToken: config.twilioAuthToken,
+            whatsappNumber: config.twilioWhatsappNumber,
+          },
+          message.from,
+          confirmation
+        );
+        
+        if (sendResult.success) {
+          console.log(`Confirmation sent to ${message.from} (SID: ${sendResult.messageSid})`);
+        } else {
+          console.error(`Failed to send confirmation: ${sendResult.error}`);
+        }
+      } catch (confirmError: any) {
+        console.error(`Error sending confirmation: ${confirmError.message}`);
+      }
+    } else {
+      await storage.updateMessageStatus(
+        message.id,
+        "failed",
+        new Date(),
+        "Failed to create any calendar events"
+      );
+    }
   } catch (error: any) {
     console.error(`Failed to process message ${message.id}:`, error.message);
     await storage.updateMessageStatus(
