@@ -69,3 +69,48 @@ export async function testTwilioConnection(
     return false;
   }
 }
+
+export async function sendWhatsAppMessage(
+  config: TwilioConfig,
+  to: string,
+  message: string
+): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+  const { accountSid, authToken, whatsappNumber } = config;
+  
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  
+  try {
+    const formData = new URLSearchParams();
+    formData.append("From", whatsappNumber);
+    formData.append("To", to);
+    formData.append("Body", message);
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+      },
+      body: formData.toString(),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      return {
+        success: false,
+        error: errorData.message || `Twilio API error: ${response.status}`,
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      messageSid: data.sid,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Failed to send WhatsApp message: ${error.message}`,
+    };
+  }
+}

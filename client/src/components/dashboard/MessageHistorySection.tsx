@@ -111,45 +111,55 @@ export function MessageHistorySection({ messages, isLoading }: MessageHistorySec
                 </div>
 
                 {/* Event Details (if processed) */}
-                {message.event && (
-                  <div className="mt-3 pt-3 border-t bg-muted/30 -mx-4 -mb-4 p-4 rounded-b-lg">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <Calendar className="h-4 w-4 text-primary" />
+                {message.events && message.events.length > 0 && (
+                  <div className="mt-3 pt-3 border-t bg-muted/30 -mx-4 -mb-4 p-4 rounded-b-lg space-y-4">
+                    {message.events.length > 1 && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                        <Calendar className="h-3 w-3" />
+                        <span className="font-medium">{message.events.length} events created</span>
                       </div>
-                      <div className="flex-1 space-y-2">
-                        <h4 className="font-semibold text-sm">{message.event.title}</h4>
-                        <div className="grid gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {new Date(message.event.startTime).toLocaleString()}
-                              {message.event.endTime && ` - ${new Date(message.event.endTime).toLocaleTimeString()}`}
-                            </span>
+                    )}
+                    {message.events.map((event, index) => (
+                      <div key={event.id} className={index > 0 ? "pt-4 border-t" : ""}>
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                            <Calendar className="h-4 w-4 text-primary" />
                           </div>
-                          {message.event.location && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3 w-3" />
-                              <span>{message.event.location}</span>
+                          <div className="flex-1 space-y-2">
+                            <h4 className="font-semibold text-sm">{event.title}</h4>
+                            <div className="grid gap-2 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {new Date(event.startTime).toLocaleString()}
+                                  {event.endTime && ` - ${new Date(event.endTime).toLocaleTimeString()}`}
+                                </span>
+                              </div>
+                              {event.location && (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>{event.location}</span>
+                                </div>
+                              )}
+                              {event.attendees && event.attendees.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <Users className="h-3 w-3" />
+                                  <span>{event.attendees.join(", ")}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {message.event.attendees && message.event.attendees.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3 w-3" />
-                              <span>{message.event.attendees.join(", ")}</span>
-                            </div>
-                          )}
+                            {event.description && (
+                              <p className="text-xs text-muted-foreground mt-2">
+                                {event.description}
+                              </p>
+                            )}
+                            <Badge variant="outline" className="mt-2">
+                              {event.calendarService}
+                            </Badge>
+                          </div>
                         </div>
-                        {message.event.description && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {message.event.description}
-                          </p>
-                        )}
-                        <Badge variant="outline" className="mt-2">
-                          {message.event.calendarService}
-                        </Badge>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 )}
 

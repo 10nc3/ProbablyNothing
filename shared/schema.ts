@@ -83,7 +83,8 @@ export type CalendarEvent = typeof calendarEvents.$inferSelect;
 
 // Extended types for frontend
 export type MessageWithEvent = WhatsappMessage & {
-  event?: CalendarEvent;
+  event?: CalendarEvent; // For backward compatibility
+  events?: CalendarEvent[]; // Multiple events support
 };
 
 export type ProcessingStatus = {

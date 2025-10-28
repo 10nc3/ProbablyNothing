@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Eye, EyeOff, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Save, CheckCircle2, AlertCircle, Copy, Check } from "lucide-react";
 
 interface ConfigurationSectionProps {
   config?: Configuration;
@@ -23,6 +23,7 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
   const { toast } = useToast();
   const [showTwilioToken, setShowTwilioToken] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [webhookUrlCopied, setWebhookUrlCopied] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(insertConfigurationSchema),
@@ -36,6 +37,7 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
       calendarAccessToken: "",
       pollingInterval: "5",
       isActive: false,
+      useWebhook: false,
     },
   });
 
@@ -51,6 +53,7 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
       calendarAccessToken: config?.calendarAccessToken ?? "",
       pollingInterval: config?.pollingInterval ?? "5",
       isActive: config?.isActive ?? false,
+      useWebhook: config?.useWebhook ?? false,
     });
   }, [config]);
 
@@ -100,6 +103,17 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
 
   const onSubmit = (data: any) => {
     saveMutation.mutate(data);
+  };
+
+  const copyWebhookUrl = () => {
+    const webhookUrl = `${window.location.origin}/api/webhooks/twilio`;
+    navigator.clipboard.writeText(webhookUrl);
+    setWebhookUrlCopied(true);
+    toast({
+      title: "Webhook URL copied",
+      description: "Paste this into your Twilio console",
+    });
+    setTimeout(() => setWebhookUrlCopied(false), 2000);
   };
 
   if (isLoading) {
@@ -334,32 +348,85 @@ export function ConfigurationSection({ config, isLoading }: ConfigurationSection
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="pollingInterval"
+              name="useWebhook"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Polling Interval (minutes)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-polling-interval">
-                        <SelectValue placeholder="Select interval" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="1">Every 1 minute</SelectItem>
-                      <SelectItem value="5">Every 5 minutes</SelectItem>
-                      <SelectItem value="10">Every 10 minutes</SelectItem>
-                      <SelectItem value="15">Every 15 minutes</SelectItem>
-                      <SelectItem value="30">Every 30 minutes</SelectItem>
-                      <SelectItem value="60">Every hour</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    How often to check for new WhatsApp messages
-                  </FormDescription>
-                  <FormMessage />
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Webhook Mode</FormLabel>
+                    <FormDescription>
+                      Enable real-time processing via Twilio webhooks (recommended)
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-webhook-mode"
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
+
+            {form.watch("useWebhook") && (
+              <div className="rounded-lg border p-4 space-y-3 bg-muted/50">
+                <div className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Webhook URL</FormLabel>
+                  <FormDescription className="text-xs">
+                    Configure this URL in your Twilio console under WhatsApp Sandbox or Number settings
+                  </FormDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 text-xs font-mono bg-background rounded border overflow-x-auto">
+                    {window.location.origin}/api/webhooks/twilio
+                  </code>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={copyWebhookUrl}
+                    data-testid="button-copy-webhook-url"
+                  >
+                    {webhookUrlCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!form.watch("useWebhook") && (
+              <FormField
+                control={form.control}
+                name="pollingInterval"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Polling Interval (minutes)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-polling-interval">
+                          <SelectValue placeholder="Select interval" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="1">Every 1 minute</SelectItem>
+                        <SelectItem value="5">Every 5 minutes</SelectItem>
+                        <SelectItem value="10">Every 10 minutes</SelectItem>
+                        <SelectItem value="15">Every 15 minutes</SelectItem>
+                        <SelectItem value="30">Every 30 minutes</SelectItem>
+                        <SelectItem value="60">Every hour</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      How often to check for new WhatsApp messages (polling mode)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

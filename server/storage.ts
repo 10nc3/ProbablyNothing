@@ -108,7 +108,8 @@ export class MemStorage implements IStorage {
         const events = await this.getEventsByMessageId(message.id);
         return {
           ...message,
-          event: events[0],
+          event: events[0], // For backward compatibility
+          events, // All events for this message
         };
       })
     );
@@ -261,7 +262,8 @@ export class DbStorage implements IStorage {
         const events = await this.getEventsByMessageId(message.id);
         return {
           ...message,
-          event: events[0],
+          event: events[0], // For backward compatibility
+          events, // All events for this message
         };
       })
     );
