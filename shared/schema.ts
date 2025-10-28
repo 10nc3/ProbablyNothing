@@ -22,6 +22,7 @@ export const configurations = pgTable("configurations", {
   pollingInterval: text("polling_interval").notNull().default("5"), // minutes
   isActive: boolean("is_active").notNull().default(false),
   useWebhook: boolean("use_webhook").notNull().default(false), // true for webhook, false for polling
+  userTimezone: text("user_timezone").default("UTC"), // User's timezone for event conversion
   
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -65,6 +66,7 @@ export const calendarEvents = pgTable("calendar_events", {
   location: text("location"),
   description: text("description"),
   attendees: text("attendees").array(),
+  detectedTimezone: text("detected_timezone"), // Timezone detected from message (e.g., "PST", "America/Los_Angeles")
   
   // Calendar service response
   externalEventId: text("external_event_id"), // ID from Google/Outlook/etc
