@@ -474,39 +474,40 @@ test('solveIdentity decreases with negative sigma', () => {
   assert.ok(A < SM_PHI, `expected < PHI, got ${A}`);
 });
 
-test('measureAffordability FATALISM regime', () => {
-  const r = measureAffordability({ city: 'Tokyo', year: 2024, landPricePerSqm: 800, medianIncome: 60000 });
+test('measureAffordability FATALISM regime (>25 yrs)', () => {
+  const r = measureAffordability({ city: 'Seoul', year: 2024, landPricePerSqm: 2000, medianIncome: 50000 });
   assert.strictEqual(r.regime, 'FATALISM');
-  assert.ok(r.ratio > 8);
-  assert.strictEqual(r.city, 'Tokyo');
+  assert.ok(r.yearsToMortgage > 25, `expected >25 yrs, got ${r.yearsToMortgage}`);
+  assert.strictEqual(r.city, 'Seoul');
 });
 
-test('measureAffordability OPTIMISM regime', () => {
+test('measureAffordability OPTIMISM regime (<10 yrs)', () => {
   const r = measureAffordability({ city: 'Tokyo', year: 1975, landPricePerSqm: 50, medianIncome: 30000 });
   assert.strictEqual(r.regime, 'OPTIMISM');
-  assert.ok(r.ratio < 3);
+  assert.ok(r.yearsToMortgage < 10, `expected <10 yrs, got ${r.yearsToMortgage}`);
 });
 
-test('measureAffordability PHI-BREATHING regime', () => {
-  const r = measureAffordability({ city: 'Test', year: 2024, landPricePerSqm: 30, medianIncome: 4000 });
+test('measureAffordability PHI-BREATHING regime (10-25 yrs)', () => {
+  const r = measureAffordability({ city: 'Seoul', year: 2024, landPricePerSqm: 1000, medianIncome: 50000 });
   assert.strictEqual(r.regime, 'PHI-BREATHING');
-  assert.ok(r.ratio >= 3 && r.ratio <= 8, `ratio ${r.ratio} should be in [3, 8]`);
+  assert.ok(r.yearsToMortgage >= 10 && r.yearsToMortgage <= 25, `expected 10-25 yrs, got ${r.yearsToMortgage}`);
 });
 
 test('measureAffordability returns all expected fields', () => {
   const r = measureAffordability({ city: 'X', year: 2024, landPricePerSqm: 100, medianIncome: 50000 });
   assert.ok('totalPrice' in r);
-  assert.ok('ratio' in r);
+  assert.ok('yearsToMortgage' in r);
   assert.ok('regime' in r);
   assert.ok('sigma' in r);
   assert.ok('identityValue' in r);
   assert.ok('phiDeviation' in r);
   assert.ok('metadata' in r);
+  assert.ok(!('ratio' in r), 'ratio field should not exist');
 });
 
-test('compareTimePeriods detects WORSENING', () => {
+test('compareTimePeriods detects WORSENING with regime change', () => {
   const m1 = measureAffordability({ city: 'Tokyo', year: 1975, landPricePerSqm: 50, medianIncome: 30000 });
-  const m2 = measureAffordability({ city: 'Tokyo', year: 2024, landPricePerSqm: 800, medianIncome: 60000 });
+  const m2 = measureAffordability({ city: 'Tokyo', year: 2024, landPricePerSqm: 2000, medianIncome: 50000 });
   const c = comparePeriods(m1, m2);
   assert.strictEqual(c.direction, 'WORSENING');
   assert.ok(c.regimeChange.includes('OPTIMISM'));
@@ -514,8 +515,8 @@ test('compareTimePeriods detects WORSENING', () => {
 });
 
 test('compareTimePeriods detects stable regime', () => {
-  const m1 = measureAffordability({ city: 'A', year: 2020, landPricePerSqm: 500, medianIncome: 50000 });
-  const m2 = measureAffordability({ city: 'A', year: 2024, landPricePerSqm: 550, medianIncome: 50000 });
+  const m1 = measureAffordability({ city: 'A', year: 2020, landPricePerSqm: 50, medianIncome: 30000 });
+  const m2 = measureAffordability({ city: 'A', year: 2024, landPricePerSqm: 60, medianIncome: 30000 });
   const c = comparePeriods(m1, m2);
   assert.strictEqual(c.regimeChange, 'stable');
 });
@@ -543,11 +544,13 @@ test('getSeedMetricProxy returns context string', () => {
 });
 
 test('formatSeedMetric formats result correctly', () => {
-  const r = measureAffordability({ city: 'Seoul', year: 2024, landPricePerSqm: 1000, medianIncome: 50000 });
+  const r = measureAffordability({ city: 'Seoul', year: 2024, landPricePerSqm: 2000, medianIncome: 50000 });
   const formatted = formatSeedMetric(r);
   assert.ok(formatted.includes('Seoul'));
   assert.ok(formatted.includes('2024'));
   assert.ok(formatted.includes('FATALISM'));
+  assert.ok(formatted.includes('years to mortgage'));
+  assert.ok(!formatted.includes('Ratio'), 'should not contain ratio');
 });
 
 test('formatSeedMetric handles null', () => {
