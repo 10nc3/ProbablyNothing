@@ -1,0 +1,101 @@
+Step 2: Install & Auth in OpenClaw (5 min)
+In your OpenClaw repo (johnjames-bit/nyanclaw or 10nc3/ProbablyNothing):
+Bashnpm install discord.js
+Create lib/discord-client.js (basic client setup):
+JavaScriptconst { Client, GatewayIntentBits, AttachmentBuilder } = require('discord.js');
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,  // For reading message text
+    GatewayIntentBits.GuildMessageReactions  // Optional for threads/reactions
+  ]
+});
+
+const TOKEN = process.env.DISCORD_BOT_TOKEN;  // Set in .env or Replit secrets
+
+client.login(TOKEN).then(() => {
+  console.log('Discord bot logged in');
+}).catch(err => {
+  console.error('Discord login failed:', err);
+});
+
+// Export for pipeline use
+module.exports = { client };
+
+Add to .env or Replit secrets: DISCORD_BOT_TOKEN=your_token_here
+Test boot: Run OpenClaw → check console for "logged in".
+
+Step 3: Integrate into Pipeline (30-60 min)
+Hook into runPipeline (from your pasted code) — add Discord intents to detection, then read/write/edit via client.
+In intent-detector.js (or new detectIntents), add patterns:
+JavaScriptconst DISCORD_PATTERNS = [
+  /\b(discord|channel|message|thread|file|dump)\b/i,
+  /send\s+(?:to|in)\s+(?:discord|channel)/i,
+  /read\s+(?:from|in)\s+(?:discord|messages)/i,
+  /edit\s+(?:message|thread|channel)/i
+];
+
+function isDiscordIntent(query) {
+  return DISCORD_PATTERNS.some(p => p.test(query));
+}
+In runPipeline (after intents detection, before LLM call):
+JavaScript// ... existing detection ...
+const discordIntent = intents.find(i => i.type === 'discord');  // Or new type
+
+if (discordIntent) {
+  const { client } = require('./lib/discord-client');
+  const guildId = process.env.DISCORD_GUILD_ID;  // Your server ID
+  const dumpChannelId = process.env.DISCORD_DUMP_CHANNEL_ID;  // #claw-dump ID
+
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) {
+    response = '[discord] Guild not found — check GUILD_ID env.';
+  } else {
+    // Example actions — parse query for specifics
+    if (query.includes('send') || query.includes('dump')) {
+      const messageContent = query.replace(/send|dump|to.*channel/i, '').trim();
+      const channel = guild.channels.cache.get(dumpChannelId);
+      if (channel) {
+        await channel.send(messageContent);
+        response = `[discord] Dumped to #claw-dump: "${messageContent}"`;
+      } else {
+        response = '[discord] Dump channel not found.';
+      }
+    } else if (query.includes('read')) {
+      const channel = guild.channels.cache.get(dumpChannelId);
+      if (channel) {
+        const messages = await channel.messages.fetch({ limit: 10 });
+        const recent = messages.map(m => `${m.author.username}: ${m.content}`).join('\n');
+        response = `[discord] Recent from #claw-dump:\n${recent}`;
+      }
+    } else if (query.includes('edit')) {
+      // Parse message ID from query or last message
+      const messageId = query.match(/edit\s+(\d+)/)?.[1];  // e.g., "edit 1234567890"
+      if (messageId) {
+        const channel = guild.channels.cache.get(dumpChannelId);
+        const message = await channel.messages.fetch(messageId);
+        const newContent = query.replace(/edit\s+\d+.*?\s+to\s+/i, '').trim();
+        await message.edit(newContent);
+        response = `[discord] Edited message ${messageId} to: "${newContent}"`;
+      }
+    } else if (query.includes('file')) {
+      // Attach file example
+      const attachment = new AttachmentBuilder('path/to/file.txt');
+      const channel = guild.channels.cache.get(dumpChannelId);
+      await channel.send({ content: 'Claw dump file', files: [attachment] });
+      response = '[discord] File dumped to #claw-dump.';
+    } else if (query.includes('thread')) {
+      const channel = guild.channels.cache.get(dumpChannelId);
+      const thread = await channel.threads.create({
+        name: 'Claw Thread',
+        autoArchiveDuration: 60,  // 1 hour
+        reason: 'Claw dump thread'
+      });
+      await thread.send('Thread started by claw.');
+      response = `[discord] New thread: ${thread.name} (ID: ${thread.id})`;
+    }
+  }
+  // ... continue with memory/audit as usual
+}
