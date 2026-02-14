@@ -18,10 +18,40 @@ const { runPipeline } = require('./lib/void-pipeline');
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
 
+const net = require('net');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 let envReport = null;
+
+function isLocalhost(ip) {
+  if (!ip) return false;
+  const cleaned = ip.replace(/^::ffff:/, '');
+  if (cleaned === '127.0.0.1' || cleaned === '::1' || cleaned === 'localhost') return true;
+  if (net.isIPv4(cleaned)) {
+    const parts = cleaned.split('.').map(Number);
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+  }
+  return false;
+}
+
+function trustGate(req, res, next) {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (isLocalhost(ip)) return next();
+  const auth = req.headers.authorization;
+  const token = process.env.SESSION_SECRET;
+  if (!token) return next();
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'authentication required from public IP' });
+  }
+  if (auth.slice(7) !== token) {
+    return res.status(403).json({ error: 'invalid token' });
+  }
+  next();
+}
 
 app.set('trust proxy', 1);
 app.use(helmet());
@@ -43,7 +73,19 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/api/env', (req, res) => {
+app.get('/api/env', async (req, res) => {
+  if (req.query.reload === 'true') {
+    try {
+      const freshReport = await detectEnvironment();
+      envReport = freshReport;
+      if (freshReport.chain.length > 0) {
+        setDynamicChain(freshReport.chain);
+        console.log(`[openclaw] chain hot-reloaded: ${freshReport.chain.join(' -> ')}`);
+      }
+    } catch (e) {
+      console.error(`[openclaw] chain reload failed: ${e.message}`);
+    }
+  }
   if (!envReport) return res.status(503).json({ error: 'env detection not complete' });
   res.json({
     runtime: envReport.runtime,
@@ -58,13 +100,14 @@ app.get('/api/env', (req, res) => {
     chain: envReport.chain,
     nyanApi: envReport.nyanApi,
     ready: envReport.ready,
+    reloaded: req.query.reload === 'true' ? true : undefined,
     note: envReport.runtime === 'replit-dev'
       ? 'Running in Replit dev environment. For production, deploy with Ollama locally or cloud API keys.'
       : null
   });
 });
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', trustGate, async (req, res) => {
   const { message, provider, model, temperature, maxTokens, callerId } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
 
@@ -92,7 +135,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.post('/api/atomic', async (req, res) => {
+app.post('/api/atomic', trustGate, async (req, res) => {
   const { message, domain } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
   try {
@@ -103,7 +146,7 @@ app.post('/api/atomic', async (req, res) => {
   }
 });
 
-app.post('/api/psi-ema', async (req, res) => {
+app.post('/api/psi-ema', trustGate, async (req, res) => {
   const { ticker } = req.body;
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
   try {
