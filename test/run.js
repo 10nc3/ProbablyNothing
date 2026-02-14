@@ -975,6 +975,41 @@ test('extractTickerWithAI imports callWithFallback, not hardcoded Groq', () => {
 });
 
 // ═══════════════════════════════════════════
+// Pipeline hardening: context truncation
+// ═══════════════════════════════════════════
+console.log('\n\x1b[1m── pipeline hardening ──\x1b[0m');
+
+const {
+  getContextBudget,
+  truncateToTokenBudget
+} = require('../lib/void-pipeline');
+
+console.log('\n  getContextBudget:');
+test('returns finite budget when chain has provider', () => {
+  const budget = getContextBudget(100);
+  assert.ok(typeof budget === 'number', 'should return a number');
+});
+
+console.log('\n  truncateToTokenBudget:');
+test('returns null/undefined input unchanged', () => {
+  assert.strictEqual(truncateToTokenBudget(null, 1000), null);
+  assert.strictEqual(truncateToTokenBudget(undefined, 1000), undefined);
+  assert.strictEqual(truncateToTokenBudget('', 1000), '');
+});
+
+test('short text passes through unchanged', () => {
+  const text = 'hello world';
+  assert.strictEqual(truncateToTokenBudget(text, 1000), text);
+});
+
+test('long text gets truncated', () => {
+  const longText = 'word '.repeat(5000);
+  const result = truncateToTokenBudget(longText, 100);
+  assert.ok(result.length < longText.length, 'should be shorter than input');
+  assert.ok(result.includes('[context truncated'), 'should include truncation marker');
+});
+
+// ═══════════════════════════════════════════
 // Summary
 // ═══════════════════════════════════════════
 console.log(`\n\x1b[1m── results ──\x1b[0m`);
