@@ -36,6 +36,6 @@ Key architectural features include:
 
 Three-generation memory: past anchor, present state, future direction.
 
-- **Nyanclaw anchor**: `67b992f` (main) — last verified synthesis. All prior clones purged. Re-clone from this commit for future audits.
+- **Nyanclaw anchor**: `78da869` (main) — last verified synthesis. All prior clones purged. Re-clone from this commit for future audits.
 - **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries).
 - **Future**: Hook system (disk JSONL logging, WhatsApp CC) exists in nyanclaw but not absorbed — deployment-specific to their infra. Absorb only if we add WhatsApp or disk logging.
