@@ -301,6 +301,114 @@ test('WORKSPACE is absolute path', () => {
 });
 
 // ═══════════════════════════════════════════
+// complexity scoring
+// ═══════════════════════════════════════════
+const { scoreComplexity } = require('../lib/void-pipeline');
+
+console.log('\n\x1b[1m── complexity scoring ──\x1b[0m\n');
+
+test('greetings are light complexity', () => {
+  assert.strictEqual(scoreComplexity('hi'), 'light');
+  assert.strictEqual(scoreComplexity('hello'), 'light');
+  assert.strictEqual(scoreComplexity('thanks'), 'light');
+});
+
+test('short queries are light complexity', () => {
+  assert.strictEqual(scoreComplexity('what is 2+2?'), 'light');
+});
+
+test('analysis keywords trigger heavy complexity', () => {
+  assert.strictEqual(scoreComplexity('analyze the quarterly earnings report and compare year-over-year growth metrics for this company'), 'heavy');
+});
+
+test('philosophical queries trigger heavy complexity', () => {
+  assert.strictEqual(scoreComplexity('explain the dialectic relationship between thesis and antithesis in modern epistemology'), 'heavy');
+});
+
+test('medium queries score correctly', () => {
+  const r = scoreComplexity('Can you also tell me about the weather and what activities might be good?');
+  assert.ok(r === 'medium' || r === 'heavy', `expected medium or heavy, got ${r}`);
+});
+
+test('empty query is light', () => {
+  assert.strictEqual(scoreComplexity(''), 'light');
+  assert.strictEqual(scoreComplexity(null), 'light');
+});
+
+// ═══════════════════════════════════════════
+// vision passthrough
+// ═══════════════════════════════════════════
+const { callNyanAPI, atomicQuery: atomicQ } = require('../lib/nyan-api');
+const axios = require('axios');
+
+console.log('\n\x1b[1m── vision passthrough ──\x1b[0m\n');
+
+test('callNyanAPI builds vision payload with base64 image', async () => {
+  const fakeBase64 = 'iVBORw0KGgoAAAANSUhEUg==';
+  const origPost = axios.post;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedPayload = payload;
+    return { data: { success: true, response: 'saw it' } };
+  };
+  try {
+    await callNyanAPI('what is in this image?', { image: fakeBase64, imageMime: 'image/png' });
+    assert.ok(capturedPayload.vision, 'payload should have vision field');
+    assert.strictEqual(capturedPayload.vision.image, fakeBase64);
+    assert.strictEqual(capturedPayload.vision.mime, 'image/png');
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+test('callNyanAPI builds vision payload with imageUrl', async () => {
+  const origPost = axios.post;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedPayload = payload;
+    return { data: { success: true, response: 'saw url' } };
+  };
+  try {
+    await callNyanAPI('describe this', { imageUrl: 'https://example.com/photo.png' });
+    assert.ok(capturedPayload.vision, 'payload should have vision field');
+    assert.strictEqual(capturedPayload.vision.url, 'https://example.com/photo.png');
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+test('callNyanAPI omits vision when no image provided', async () => {
+  const origPost = axios.post;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedPayload = payload;
+    return { data: { success: true, response: 'text only' } };
+  };
+  try {
+    await callNyanAPI('just a text query');
+    assert.strictEqual(capturedPayload.vision, undefined);
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+test('atomicQuery passes vision opts through', async () => {
+  const origPost = axios.post;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedPayload = payload;
+    return { data: { success: true, response: 'vision atomic' } };
+  };
+  try {
+    await atomicQ('what is this?', 'vision', { image: 'base64data', imageMime: 'image/jpeg' });
+    assert.ok(capturedPayload.vision);
+    assert.strictEqual(capturedPayload.vision.image, 'base64data');
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+// ═══════════════════════════════════════════
 // Summary
 // ═══════════════════════════════════════════
 console.log(`\n\x1b[1m── results ──\x1b[0m`);

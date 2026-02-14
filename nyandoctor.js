@@ -3,8 +3,10 @@
  * NyanDoctor — diagnose and auto-fix common issues
  *
  * Usage:
- *   node nyandoctor.js          # diagnose only (safe, read-only)
- *   node nyandoctor.js --fix    # diagnose + auto-repair what we can
+ *   node nyandoctor.js              # diagnose only (safe, read-only)
+ *   node nyandoctor.js --fix        # diagnose + auto-repair what we can
+ *   node nyandoctor.js --json       # machine-parseable JSON output (CI/scripting)
+ *   node nyandoctor.js --json --fix # JSON output + auto-repair
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
@@ -16,8 +18,11 @@ const axios = require('axios');
 const { execSync } = require('child_process');
 
 const FIX = process.argv.includes('--fix');
+const JSON_MODE = process.argv.includes('--json');
 
-const C = {
+const C = JSON_MODE ? {
+  reset: '', bold: '', dim: '', green: '', red: '', yellow: '', cyan: '', white: ''
+} : {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
   dim: '\x1b[2m',
@@ -32,28 +37,42 @@ let passed = 0;
 let warned = 0;
 let failed = 0;
 const issues = [];
+const checks = [];
 
 function ok(label, detail) {
   passed++;
-  console.log(`  ${C.green}[ok]${C.reset} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  checks.push({ status: 'ok', label, detail: detail || null });
+  if (!JSON_MODE) console.log(`  ${C.green}[ok]${C.reset} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
 }
 
 function warn(label, detail, fixable) {
   warned++;
-  const tag = fixable ? `${C.yellow}[!!]${C.reset}` : `${C.yellow}[--]${C.reset}`;
-  console.log(`  ${tag} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  checks.push({ status: 'warn', label, detail: detail || null, fixable: !!fixable });
   issues.push({ label, detail, fixable: !!fixable });
+  if (!JSON_MODE) {
+    const tag = fixable ? `${C.yellow}[!!]${C.reset}` : `${C.yellow}[--]${C.reset}`;
+    console.log(`  ${tag} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  }
 }
 
 function fail(label, detail, fixable) {
   failed++;
-  const tag = fixable ? `${C.red}[FX]${C.reset}` : `${C.red}[!!]${C.reset}`;
-  console.log(`  ${tag} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  checks.push({ status: 'fail', label, detail: detail || null, fixable: !!fixable });
   issues.push({ label, detail, fixable: !!fixable });
+  if (!JSON_MODE) {
+    const tag = fixable ? `${C.red}[FX]${C.reset}` : `${C.red}[!!]${C.reset}`;
+    console.log(`  ${tag} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  }
 }
 
 function fixed(label, detail) {
-  console.log(`  ${C.cyan}[fx]${C.reset} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+  checks.push({ status: 'fixed', label, detail: detail || null });
+  if (!JSON_MODE) console.log(`  ${C.cyan}[fx]${C.reset} ${label}${detail ? ` ${C.dim}${detail}${C.reset}` : ''}`);
+}
+
+function info(label, detail) {
+  checks.push({ status: 'info', label, detail: detail || null });
+  if (!JSON_MODE) console.log(`  ${C.dim}[--]${C.reset} ${C.dim}${label}${detail ? ` — ${detail}` : ''}${C.reset}`);
 }
 
 function checkPort(port) {
@@ -66,14 +85,16 @@ function checkPort(port) {
 }
 
 async function run() {
-  console.log('');
-  console.log(`${C.bold}${C.cyan}  ╔══════════════════════════════════╗${C.reset}`);
-  console.log(`${C.bold}${C.cyan}  ║   ${C.white}NYANDOCTOR${C.cyan}  ${C.dim}${FIX ? '--fix' : 'diagnose'}${C.cyan}    ║${C.reset}`);
-  console.log(`${C.bold}${C.cyan}  ╚══════════════════════════════════╝${C.reset}`);
-  console.log('');
+  if (!JSON_MODE) {
+    console.log('');
+    console.log(`${C.bold}${C.cyan}  ╔══════════════════════════════════╗${C.reset}`);
+    console.log(`${C.bold}${C.cyan}  ║   ${C.white}NYANDOCTOR${C.cyan}  ${C.dim}${FIX ? '--fix' : 'diagnose'}${C.cyan}    ║${C.reset}`);
+    console.log(`${C.bold}${C.cyan}  ╚══════════════════════════════════╝${C.reset}`);
+    console.log('');
+  }
 
   // ── 1. node_modules ──
-  console.log(`${C.bold}  Dependencies${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Dependencies${C.reset}`);
   const hasModules = fs.existsSync(path.join(__dirname, 'node_modules'));
   if (hasModules) {
     ok('node_modules', 'installed');
@@ -98,10 +119,10 @@ async function run() {
   } else {
     fail('package.json', 'missing');
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 2. .env ──
-  console.log(`${C.bold}  Environment${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Environment${C.reset}`);
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
     ok('.env file', envPath);
@@ -116,10 +137,10 @@ async function run() {
       }
     }
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 3. Privilege ──
-  console.log(`${C.bold}  Privilege${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Privilege${C.reset}`);
   const privId = process.env.PRIVILEGED_CALLER_ID;
   if (privId && privId.trim()) {
     const ids = privId.split(',').map(s => s.trim()).filter(Boolean);
@@ -128,10 +149,10 @@ async function run() {
   } else {
     warn('PRIVILEGED_CALLER_ID', 'not set — prescribe mode locked (secure by default)');
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 4. API Keys ──
-  console.log(`${C.bold}  Cloud Providers${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Cloud Providers${C.reset}`);
   const cloudKeys = [
     { key: 'MINIMAX_API_KEY', label: 'MiniMax', priority: '1st' },
     { key: 'GROQ_API_KEY', label: 'Groq', priority: '2nd' },
@@ -144,16 +165,16 @@ async function run() {
       cloudCount++;
       ok(c.label, `${c.key} set (${c.priority})`);
     } else {
-      console.log(`  ${C.dim}[--]${C.reset} ${C.dim}${c.label} — ${c.key} not set${C.reset}`);
+      info(c.label, `${c.key} not set`);
     }
   }
   if (cloudCount === 0) {
     warn('No cloud providers', 'set at least one API key or use Ollama locally');
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 5. Ollama ──
-  console.log(`${C.bold}  Ollama (substrate)${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Ollama (substrate)${C.reset}`);
   const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
   try {
     const res = await axios.get(`${ollamaUrl}/api/tags`, { timeout: 3000 });
@@ -174,10 +195,10 @@ async function run() {
       fail('No LLM providers', 'no cloud keys AND Ollama unreachable — pipeline will fail');
     }
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 6. Nyan API ──
-  console.log(`${C.bold}  Nyan API${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Nyan API${C.reset}`);
   const nyanToken = process.env.NYAN_API_TOKEN;
   if (!nyanToken) {
     warn('NYAN_API_TOKEN', 'not set — atomic queries will fail');
@@ -202,10 +223,10 @@ async function run() {
       }
     }
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 7. Port ──
-  console.log(`${C.bold}  Network${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Network${C.reset}`);
   const portFree = await checkPort(5000);
   if (portFree) {
     ok('Port 5000', 'available');
@@ -217,12 +238,12 @@ async function run() {
   if (sessionSecret) {
     ok('SESSION_SECRET', 'set (non-localhost auth enabled)');
   } else {
-    console.log(`  ${C.dim}[--]${C.reset} ${C.dim}SESSION_SECRET — not set (dev mode: all requests trusted)${C.reset}`);
+    info('SESSION_SECRET', 'not set (dev mode: all requests trusted)');
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 8. Core files ──
-  console.log(`${C.bold}  Core Files${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Core Files${C.reset}`);
   const coreFiles = [
     'index.js', 'lib/void-pipeline.js', 'lib/llm-client.js', 'lib/env-detect.js',
     'lib/startup-tui.js', 'lib/context-router.js', 'lib/memory-manager.js',
@@ -237,10 +258,10 @@ async function run() {
       missingCore++;
     }
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── 9. Tests ──
-  console.log(`${C.bold}  Tests${C.reset}`);
+  if (!JSON_MODE) console.log(`${C.bold}  Tests${C.reset}`);
   const testPath = path.join(__dirname, 'test', 'run.js');
   if (fs.existsSync(testPath)) {
     try {
@@ -255,28 +276,41 @@ async function run() {
   } else {
     warn('test/run.js', 'not found');
   }
-  console.log('');
+  if (!JSON_MODE) console.log('');
 
   // ── Summary ──
-  console.log(`${C.bold}  ── Summary ──${C.reset}`);
-  console.log(`  ${C.green}${passed} ok${C.reset}  ${C.yellow}${warned} warning${warned !== 1 ? 's' : ''}${C.reset}  ${C.red}${failed} error${failed !== 1 ? 's' : ''}${C.reset}`);
-
-  if (issues.length > 0 && !FIX) {
-    const fixable = issues.filter(i => i.fixable);
-    if (fixable.length > 0) {
-      console.log('');
-      console.log(`  ${C.cyan}Run ${C.bold}node nyandoctor.js --fix${C.reset}${C.cyan} to auto-repair ${fixable.length} issue(s)${C.reset}`);
-    }
-  }
-
-  if (failed === 0 && warned === 0) {
-    console.log(`  ${C.green}${C.bold}System healthy.${C.reset}`);
-  } else if (failed === 0) {
-    console.log(`  ${C.yellow}System operational with warnings.${C.reset}`);
+  if (JSON_MODE) {
+    const result = {
+      ok: passed,
+      warnings: warned,
+      errors: failed,
+      healthy: failed === 0 && warned === 0,
+      checks,
+      issues,
+      timestamp: new Date().toISOString()
+    };
+    console.log(JSON.stringify(result));
   } else {
-    console.log(`  ${C.red}System has issues that need attention.${C.reset}`);
+    console.log(`${C.bold}  ── Summary ──${C.reset}`);
+    console.log(`  ${C.green}${passed} ok${C.reset}  ${C.yellow}${warned} warning${warned !== 1 ? 's' : ''}${C.reset}  ${C.red}${failed} error${failed !== 1 ? 's' : ''}${C.reset}`);
+
+    if (issues.length > 0 && !FIX) {
+      const fixable = issues.filter(i => i.fixable);
+      if (fixable.length > 0) {
+        console.log('');
+        console.log(`  ${C.cyan}Run ${C.bold}node nyandoctor.js --fix${C.reset}${C.cyan} to auto-repair ${fixable.length} issue(s)${C.reset}`);
+      }
+    }
+
+    if (failed === 0 && warned === 0) {
+      console.log(`  ${C.green}${C.bold}System healthy.${C.reset}`);
+    } else if (failed === 0) {
+      console.log(`  ${C.yellow}System operational with warnings.${C.reset}`);
+    } else {
+      console.log(`  ${C.red}System has issues that need attention.${C.reset}`);
+    }
+    console.log('');
   }
-  console.log('');
 
   process.exit(failed > 0 ? 1 : 0);
 }
