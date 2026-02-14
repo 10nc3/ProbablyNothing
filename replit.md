@@ -14,8 +14,9 @@ Preferred communication style: Simple, everyday language.
 Single O(n) pass orchestrator. No duplicate routing, no hanging endpoints.
 1. DETECT — parallel regex branches (identity? psi-ema? stock? legal? forex? code?)
 2. GATE — privilege check for prescribe mode (+628116360610 only)
+2b. SAFETY — exec safety guard blocks dangerous patterns (rm -rf, dd, fork bombs) in prescribe mode (PicoClaw-inspired)
 3. CONTEXT — MoE expert file injection (IDENTITY.md, PHILOSOPHY.md) + session memory
-4. CALL — single LLM call via dynamic fallback chain
+4. CALL — single LLM call via dynamic fallback chain (maxTokens auto-clamped per provider)
 5. SIGN — personality stamp (regex, not LLM)
 
 ### Three Modes
@@ -32,7 +33,14 @@ At boot, the system:
 5. Prints colored TUI banner with full status and guidance
 
 ### Dynamic Fallback Chain
-Built at startup from detected providers. Priority: Cloud providers first (MiniMax, Groq, Claude, OpenAI), then Ollama (local) last as substrate safety net. No hardcoded chain — adapts to environment.
+Built at startup from detected providers. Priority: Cloud providers first (MiniMax, Groq, Claude, OpenAI), then Ollama (local) last as substrate safety net. No hardcoded chain — adapts to environment. Hot-reloadable via `GET /api/env?reload=true`.
+
+### Security Hardening
+- **Localhost trust gate** — RFC1918/loopback IPs trusted on POST endpoints; public IPs require `Authorization: Bearer <SESSION_SECRET>`. No SESSION_SECRET set = open (dev mode).
+- **Context window clamping** — CONTEXT_LIMITS map per provider auto-clamps maxTokens before each LLM call, preventing silent overflow when falling from large-context to small-context provider.
+- **Exec safety guard** — DANGEROUS_PATTERNS blocklist in void-pipeline blocks destructive commands (rm -rf, dd if=, fork bombs, chmod 777 /, shutdown) in prescribe mode before they reach the LLM. PicoClaw-inspired.
+- **Path traversal protection** — context-router.js validates all file paths stay within WORKSPACE root. No absolute path injection.
+- **Workspace portability** — `OPENCLAW_WORKSPACE` env var overrides workspace root; defaults to project root. Portable across local/cloud/container.
 
 ## Project Structure
 
@@ -96,6 +104,7 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - `NYAN_API_TOKEN` - nyanbook.io API authentication (secret)
 - `SESSION_SECRET` - Session encryption (secret)
 - `OLLAMA_URL` - Custom Ollama endpoint (optional, default: http://localhost:11434)
+- `OPENCLAW_WORKSPACE` - Workspace root override (optional, default: project root)
 - `MINIMAX_API_KEY` - MiniMax cloud API key
 - `ANTHROPIC_API_KEY` - Claude API key
 - `GROQ_API_KEY` - Groq API key
@@ -119,3 +128,8 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Identity + psi-ema shortcuts (skip LLM, instant response)
 - 2026-02-14: Session memory shared across all modes and provider switches
 - 2026-02-14: Clean boot: all 18 modules loading, server on port 5000
+- 2026-02-14: Added context window clamping (CONTEXT_LIMITS per provider, auto-clamp maxTokens in callProvider)
+- 2026-02-14: Added localhost trust gate (RFC1918/loopback bypass, SESSION_SECRET bearer auth for public IPs)
+- 2026-02-14: Added exec safety guard (DANGEROUS_PATTERNS blocklist in prescribe mode, PicoClaw-inspired)
+- 2026-02-14: Added workspace portability (OPENCLAW_WORKSPACE env var + path traversal protection)
+- 2026-02-14: Added chain hot-reload (GET /api/env?reload=true re-probes all providers)
