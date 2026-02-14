@@ -255,6 +255,17 @@ test('includes weekly data when present', () => {
   };
   const result = formatPsiEMA(data);
   assert.ok(result.includes('Weekly:'));
+  assert.ok(result.includes('STRONG BULL'));
+});
+
+test('shows NO DATA when weekly is missing', () => {
+  const data = {
+    ticker: 'AAPL',
+    currentPrice: 150,
+    psi_ema_daily: { theta: 5, z: 1.0, r: 2.0 }
+  };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('Weekly: NO DATA'));
 });
 
 test('handles alternate psiEma.daily format', () => {
