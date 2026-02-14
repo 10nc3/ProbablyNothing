@@ -70,6 +70,7 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - `memory/` - Session memory files
 - `prompts/` - Prompt templates
 - `setup.js` - Interactive one-liner hatch script (prompts config, writes .env, boots server)
+- `doctor.js` - Health check + auto-fix (node doctor.js / node doctor.js --fix)
 - `IDENTITY.md` - AI personality and identity definition
 - `PHILOSOPHY.md` - Philosophical framework + Kernel+Satellites φ² code philosophy
 - `SOUL.md` - Core identity traits
@@ -142,3 +143,4 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Added SETUP.md — consolidated quick-start guide with one-liner hatch flow
 - 2026-02-14: Added setup.js — interactive hatch script (prompts for config, writes .env, boots server)
 - 2026-02-14: Added dotenv — .env file auto-loaded on boot (index.js)
+- 2026-02-14: Added doctor.js — health check + auto-fix (dependencies, .env, privilege, API keys, Ollama, nyan API ping, port, core files, tests)
