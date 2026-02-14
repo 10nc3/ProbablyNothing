@@ -139,7 +139,9 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Added workspace portability (OPENCLAW_WORKSPACE env var + path traversal protection)
 - 2026-02-14: Added chain hot-reload (GET /api/env?reload=true re-probes all providers)
 - 2026-02-14: Removed hardcoded phone number — prescribe privilege now env-driven via PRIVILEGED_CALLER_ID (comma-separated, secure-by-default: no value = locked)
-- 2026-02-14: Added test/run.js — 66 tests (pipeline, security, env-detect, context-router, complexity, vision) via node test/run.js
+- 2026-02-14: Synthesis round 2 — reviewed nyanclaw antithesis at 24bf572, absorbed formatPsiEMA() (theta/z/R reading: Strong Bull, False Positive, Breathing, Neutral). AGENTS.md, USER.md, HEARTBEAT.md already present from prior synthesis. Confirmed 3 critical bugs in antithesis (undefined complexity, broken DYNAMIC_CHAIN uppercase, fake multimodal payloads).
+- 2026-02-14: formatPsiEMA() — formatted Psi-EMA display with reading interpretation based on PHI (1.618), supports both psi_ema_daily and psiEma.daily formats, includes weekly overlay
+- 2026-02-14: Added test/run.js — 72 tests (pipeline, security, env-detect, context-router, complexity, formatPsiEMA, multimodal) via node test/run.js
 - 2026-02-14: Added SETUP.md — consolidated quick-start guide with one-liner hatch flow
 - 2026-02-14: Added setup.js — interactive hatch script (prompts for config, writes .env, boots server)
 - 2026-02-14: Added dotenv — .env file auto-loaded on boot (index.js)
