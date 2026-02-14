@@ -981,7 +981,8 @@ console.log('\n\x1b[1m── pipeline hardening ──\x1b[0m');
 
 const {
   getContextBudget,
-  truncateToTokenBudget
+  truncateToTokenBudget,
+  stripPII
 } = require('../lib/void-pipeline');
 
 console.log('\n  getContextBudget:');
@@ -1007,6 +1008,42 @@ test('long text gets truncated', () => {
   const result = truncateToTokenBudget(longText, 100);
   assert.ok(result.length < longText.length, 'should be shorter than input');
   assert.ok(result.includes('[context truncated'), 'should include truncation marker');
+});
+
+console.log('\n  stripPII:');
+test('strips email addresses', () => {
+  assert.strictEqual(stripPII('contact user@example.com now'), 'contact [email] now');
+});
+
+test('strips phone numbers', () => {
+  const result = stripPII('call +628116360610 please');
+  assert.ok(!result.includes('628116360610'), 'phone number should be stripped');
+  assert.ok(result.includes('[phone]'), 'should contain [phone] label');
+});
+
+test('strips multiple PII types', () => {
+  const input = 'email me at test@foo.com or call 555-123-4567';
+  const result = stripPII(input);
+  assert.ok(!result.includes('test@foo.com'), 'email should be stripped');
+  assert.ok(!result.includes('555-123-4567'), 'phone should be stripped');
+});
+
+test('returns non-string input unchanged', () => {
+  assert.strictEqual(stripPII(null), null);
+  assert.strictEqual(stripPII(undefined), undefined);
+  assert.strictEqual(stripPII(42), 42);
+});
+
+test('leaves clean text unchanged', () => {
+  const clean = 'what is the psi-ema for $AAPL';
+  assert.strictEqual(stripPII(clean), clean);
+});
+
+test('does not strip version numbers or dates', () => {
+  const versions = 'v1.2.3.4567 node-v20.20.0';
+  assert.strictEqual(stripPII(versions), versions);
+  const date = '2026-02-14 12:30';
+  assert.strictEqual(stripPII(date), date);
 });
 
 // ═══════════════════════════════════════════
