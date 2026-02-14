@@ -1,24 +1,36 @@
 # SETUP.md — MY OPENCLAW Quick Start
 
-## 1. Clone & Install
+## One-Liner Hatch
 
 ```bash
 git clone https://github.com/10nc3/ProbablyNothing.git
 cd ProbablyNothing
 npm install
+node setup.js
 ```
 
-Dependencies: Express, Axios, Helmet, CORS, express-rate-limit, Twilio.
+That's it. The setup script will:
+1. Show what's already configured
+2. Prompt for your privileged caller ID (phone/email/username)
+3. Prompt for any missing API keys
+4. Write a `.env` file
+5. Boot the server
 
-## 2. Environment Variables
+After first hatch, just `node index.js` (or `npm start`) to boot — `.env` is loaded automatically.
 
-### Required
+---
+
+## Manual Setup (if you prefer full control)
+
+### Environment Variables
+
+#### Required
 
 | Variable | Purpose |
 |----------|---------|
 | `NYAN_API_TOKEN` | nyanbook.io API — atomic logic brain |
 
-### Privilege (optional, secure-by-default)
+#### Privilege (optional, secure-by-default)
 
 | Variable | Purpose |
 |----------|---------|
@@ -32,7 +44,7 @@ export PRIVILEGED_CALLER_ID=+628116360610
 export PRIVILEGED_CALLER_ID=+628116360610,admin@example.com,devops-bot
 ```
 
-### Cloud LLM Providers (at least one recommended)
+#### Cloud LLM Providers (at least one recommended)
 
 Set any combination — the system builds a fallback chain from what's available. Cloud providers are tried first, in this order:
 
@@ -43,7 +55,7 @@ Set any combination — the system builds a fallback chain from what's available
 | `ANTHROPIC_API_KEY` | Claude | 3rd |
 | `OPENAI_API_KEY` | OpenAI | 4th |
 
-### Security (optional)
+#### Security (optional)
 
 | Variable | Purpose |
 |----------|---------|
@@ -51,22 +63,19 @@ Set any combination — the system builds a fallback chain from what's available
 | `OPENCLAW_WORKSPACE` | Override workspace root. Default: project root. |
 | `OLLAMA_URL` | Custom Ollama endpoint. Default: `http://localhost:11434` |
 
-## 3. Deployment Paths
+### Deployment Paths
 
-### A. Local with Ollama (substrate-only, no cloud costs)
+#### A. Local with Ollama (substrate-only, no cloud costs)
 
 ```bash
-# Start Ollama
 ollama serve
 ollama pull qwen2.5-coder:7b
-
-# Start OpenClaw
 node index.js
 ```
 
 Chain: `ollama` (single provider, local)
 
-### B. Cloud-only (no Ollama needed)
+#### B. Cloud-only (no Ollama needed)
 
 ```bash
 export MINIMAX_API_KEY=your_key
@@ -76,18 +85,13 @@ node index.js
 
 Chain: `minimax` (or whichever cloud keys you set)
 
-### C. Hybrid (recommended)
+#### C. Hybrid (recommended)
 
 ```bash
-# Set cloud keys
 export MINIMAX_API_KEY=your_key
 export GROQ_API_KEY=your_key
-
-# Start Ollama as substrate
 ollama serve
 ollama pull qwen2.5-coder:7b
-
-# Start OpenClaw
 export NYAN_API_TOKEN=your_token
 node index.js
 ```
@@ -95,42 +99,18 @@ node index.js
 Chain: `minimax -> groq -> ollama`
 Cloud runs first. Ollama holds the ground when the sky falls.
 
-## 4. Verify
+---
 
-### Health check
-
-```bash
-curl http://localhost:5000/health
-```
-
-Expected: `{ "status": "ok", "runtime": "local", "chain": [...], ... }`
-
-### Environment status
+## Verify
 
 ```bash
-curl http://localhost:5000/api/env
-```
-
-Shows full provider status, chain, runtime detection, and guidance.
-
-### Chat test
-
-```bash
-# General chat (describe mode)
+curl http://localhost:5000/health                # health check
+curl http://localhost:5000/api/env               # full environment status
+curl http://localhost:5000/api/modules           # 18 modules loaded
 curl -X POST http://localhost:5000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "who are you"}'
-
-# Shortcut — instant identity response, no LLM call
+  -d '{"message": "who are you"}'               # identity shortcut (no LLM needed)
 ```
-
-### Module status
-
-```bash
-curl http://localhost:5000/api/modules
-```
-
-All 18 modules should show as loaded.
 
 ### Run tests
 
@@ -140,7 +120,9 @@ node test/run.js
 
 56 tests covering pipeline logic, security guards, env detection, and context routing.
 
-## 5. Troubleshooting
+---
+
+## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
@@ -148,12 +130,14 @@ node test/run.js
 | `Token missing` | Set `NYAN_API_TOKEN` in environment |
 | Ollama not found | Run `ollama serve` then restart the server |
 | Wrong chain priority | Check `GET /api/env` — cloud providers should appear before ollama |
-| `prescribe mode locked` | Set `PRIVILEGED_CALLER_ID` env var with your ID |
+| `prescribe mode locked` | Set `PRIVILEGED_CALLER_ID` env var or re-run `node setup.js` |
 | Replit-dev warning | Normal for development — deploy to your own infra for production |
 | Port conflict | Default is 5000. Check nothing else is bound to it |
 | Hot-reload chain | `curl http://localhost:5000/api/env?reload=true` to re-probe all providers |
 
-## 6. Three Modes
+---
+
+## Three Modes
 
 | Mode | Purpose | Access |
 |------|---------|--------|

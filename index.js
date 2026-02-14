@@ -6,6 +6,8 @@
  * Replit is dev environment only. Production = your own infra.
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
