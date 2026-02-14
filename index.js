@@ -17,6 +17,7 @@ const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain } = require('./lib/llm-client'
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
 const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeline');
+const { measureAffordability, compareTimePeriods } = require('./prompts/seed-metric');
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
 
@@ -161,6 +162,39 @@ app.post('/api/psi-ema', trustGate, async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(502).json({ error: e.message });
+  }
+});
+
+app.post('/api/seed-metric', trustGate, async (req, res) => {
+  const { city, year, landPrice, income, compare } = req.body;
+  if (!city || !landPrice || !income) {
+    return res.status(400).json({ error: 'city, landPrice (per m^2), and income required' });
+  }
+  try {
+    const result = measureAffordability({
+      city,
+      year: year || new Date().getFullYear(),
+      landPricePerSqm: Number(landPrice),
+      medianIncome: Number(income)
+    });
+
+    if (compare) {
+      const c = compare;
+      if (!c.city || !c.landPrice || !c.income) {
+        return res.status(400).json({ error: 'compare requires city, landPrice, income' });
+      }
+      const result2 = measureAffordability({
+        city: c.city,
+        year: c.year || new Date().getFullYear(),
+        landPricePerSqm: Number(c.landPrice),
+        medianIncome: Number(c.income)
+      });
+      return res.json(compareTimePeriods(result, result2));
+    }
+
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
