@@ -77,15 +77,15 @@ Inspired by **vegapunk model** — modular satellites orbiting a central kernel.
 
 ## Dynamic Fallback Chain
 
-Built at startup by `env-detect.js`. Priority: **Ollama first** (local, fast, private), then cloud providers in order of configured keys.
+Built at startup by `env-detect.js`. Priority: **Cloud first** (fast, smart), then **Ollama last** as local substrate (safety net when cloud fails).
 
 ```
-ollama -> minimax -> groq -> claude -> openai
-  ^         ^         ^        ^         ^
-  |         |         |        |         |
-local    cloud     cloud    cloud     cloud
-(always   (if key   (if key  (if key   (if key
- first)    set)      set)     set)      set)
+minimax -> groq -> claude -> openai -> ollama
+  ^         ^        ^         ^         ^
+  |         |        |         |         |
+cloud    cloud    cloud     cloud     local
+(primary  (if key  (if key   (if key  (substrate
+ if set)   set)     set)      set)    last resort)
 ```
 
 ---
