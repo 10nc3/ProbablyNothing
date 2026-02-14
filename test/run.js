@@ -698,7 +698,7 @@ test('buildDynamicChain ollama-only when no cloud', () => {
 // ═══════════════════════════════════════════
 // context-router.js
 // ═══════════════════════════════════════════
-const { route, getContext, WORKSPACE } = require('../lib/context-router');
+const { route, getContext, WORKSPACE } = require('../lib/intent-detector');
 
 console.log('\n\x1b[1m── context-router ──\x1b[0m\n');
 
@@ -828,7 +828,7 @@ test('atomicQuery passes multimodal opts through', async () => {
 // ═══════════════════════════════════════════
 // code-context.js (was stub, now real)
 // ═══════════════════════════════════════════
-const { isDesignQuestion, getSystemContextForDesign, DESIGN_KEYWORDS, PHILOSOPHY_KEYWORDS } = require('../lib/code-context');
+const { isDesignQuestion, getSystemContextForDesign, DESIGN_KEYWORDS, PHILOSOPHY_KEYWORDS } = require('../lib/intent-detector');
 
 console.log('\n\x1b[1m── code-context ──\x1b[0m');
 
@@ -846,7 +846,7 @@ test('getSystemContextForDesign returns array', () => {
 // ═══════════════════════════════════════════
 // forex-fetcher.js (was stub, now real)
 // ═══════════════════════════════════════════
-const { isForexQuery: isFQ, detectForexPair: detectFP, buildForexContext: buildFC, FOREX_PAIRS } = require('../lib/forex-fetcher');
+const { isForexQuery: isFQ, detectForexPair: detectFP, buildForexContext: buildFC, FOREX_PAIRS } = require('../lib/intent-detector');
 
 console.log('\n\x1b[1m── forex-fetcher ──\x1b[0m');
 
