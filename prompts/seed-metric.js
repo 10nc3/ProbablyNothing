@@ -34,17 +34,16 @@ function solveIdentity(sigma = 0) {
  */
 function measureAffordability({ city, year, landPricePerSqm, medianIncome }) {
   const totalPrice = landPricePerSqm * LAND_QUANTA;
-  const ratio = totalPrice / medianIncome;
-  const yearsToMortgage = ratio;
+  const yearsToMortgage = totalPrice / medianIncome;
 
   let regime, sigma;
 
-  if (ratio > 8 || yearsToMortgage > 25) {
+  if (yearsToMortgage > 25) {
     regime = 'FATALISM';
-    sigma = (ratio - 3.5) / 3.5;
-  } else if (ratio < 3) {
+    sigma = (yearsToMortgage - 25) / 25;
+  } else if (yearsToMortgage < 10) {
     regime = 'OPTIMISM';
-    sigma = -(3 - ratio) / 3;
+    sigma = -(10 - yearsToMortgage) / 10;
   } else {
     regime = 'PHI-BREATHING';
     sigma = 0;
@@ -58,7 +57,6 @@ function measureAffordability({ city, year, landPricePerSqm, medianIncome }) {
     landPricePerSqm,
     medianIncome,
     totalPrice,
-    ratio: parseFloat(ratio.toFixed(2)),
     yearsToMortgage: parseFloat(yearsToMortgage.toFixed(1)),
     regime,
     sigma: parseFloat(sigma.toFixed(4)),
@@ -66,7 +64,7 @@ function measureAffordability({ city, year, landPricePerSqm, medianIncome }) {
     phiDeviation: parseFloat(Math.abs(A - PHI).toFixed(4)),
     metadata: {
       landQuanta: LAND_QUANTA,
-      threshold: { fatalism: 8, optimism: 3 },
+      threshold: { fatalism: 25, breathing: 10 },
       fertilityWindow: 25
     }
   };
@@ -79,17 +77,15 @@ function measureAffordability({ city, year, landPricePerSqm, medianIncome }) {
  * @returns {Object} Comparison result
  */
 function compareTimePeriods(m1, m2) {
-  const deltaRatio = m2.ratio - m1.ratio;
   const deltaYears = m2.yearsToMortgage - m1.yearsToMortgage;
   const regimeChange = m1.regime !== m2.regime;
 
   return {
     city: m1.city === m2.city ? m1.city : `${m1.city} vs ${m2.city}`,
     period: `${m1.year} -> ${m2.year}`,
-    deltaRatio: parseFloat(deltaRatio.toFixed(2)),
     deltaYears: parseFloat(deltaYears.toFixed(1)),
     regimeChange: regimeChange ? `${m1.regime} -> ${m2.regime}` : 'stable',
-    direction: deltaRatio > 0 ? 'WORSENING' : 'IMPROVING',
+    direction: deltaYears > 0 ? 'WORSENING' : 'IMPROVING',
     measurements: [m1, m2]
   };
 }
@@ -125,15 +121,15 @@ function getSeedMetricProxy() {
     '',
     'Formula: Years of median single-earner income to mortgage 700 m^2/HH',
     '',
-    'Thresholds:',
-    '  FATALISM:      ratio >8x OR >25 years to mortgage',
-    '  PHI-BREATHING: ratio 3-8x (golden zone)',
-    '  OPTIMISM:      ratio <3x',
+    'Thresholds (years to mortgage 700 m^2):',
+    '  FATALISM:      >25 years',
+    '  PHI-BREATHING: 10-25 years (golden zone)',
+    '  OPTIMISM:      <10 years',
     '',
     'Physical constraints:',
     '  700 m^2/HH: Minimum land quanta (3-gen household)',
     '  25 years:   Human fertility window (age 20-45)',
-    '  3.5x:       Mortgage affordability ceiling',
+    '  10 years:   Single-decade acquisition window',
     '',
     'Identity equation: A = 1 + 1/A + sigma',
     '  sigma = 0     -> A = PHI (1.618) -> equilibrium',
@@ -141,9 +137,9 @@ function getSeedMetricProxy() {
     '  sigma < 0     -> OPTIMISM (substrate abundance)',
     '',
     'Examples:',
-    '  Tokyo  1975: $50/m^2,  $30k income -> 1.2x -> OPTIMISM',
-    '  Tokyo  2024: $800/m^2, $60k income -> 9.3x -> FATALISM',
-    '  Seoul  2024: $1000/m^2,$50k income -> 14x  -> FATALISM (TFR 0.72)',
+    '  Tokyo  1975: $50/m^2,  $30k income ->  1.2 yrs -> OPTIMISM',
+    '  Tokyo  2024: $800/m^2, $60k income ->  9.3 yrs -> OPTIMISM',
+    '  Seoul  2024: $1000/m^2,$50k income -> 14.0 yrs -> PHI-BREATHING',
     '',
     'When user asks about housing, fertility, demographic collapse,',
     'or land affordability, use this metric.',
@@ -163,7 +159,7 @@ function formatSeedMetric(result) {
     '',
     `Land:   USD ${result.landPricePerSqm}/m^2 x ${LAND_QUANTA}m^2 = USD ${result.totalPrice.toLocaleString()}`,
     `Income: USD ${result.medianIncome.toLocaleString()}/yr`,
-    `Ratio:  ${result.ratio}x | ${result.yearsToMortgage} years to mortgage`,
+    `Years:  ${result.yearsToMortgage} years to mortgage`,
     '',
     `Regime:   ${result.regime}`,
     `Sigma:    ${result.sigma}`,
