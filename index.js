@@ -11,7 +11,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { PROVIDERS, DEFAULT_CHAIN } = require('./lib/llm-client');
+const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain } = require('./lib/llm-client');
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
 const { runPipeline } = require('./lib/void-pipeline');
@@ -147,6 +147,10 @@ app.get('/api/modules', (req, res) => {
 
 async function boot() {
   envReport = await detectEnvironment();
+
+  if (envReport.chain.length > 0) {
+    setDynamicChain(envReport.chain);
+  }
 
   printBanner(envReport, PORT);
 
