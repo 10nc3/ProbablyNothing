@@ -111,7 +111,7 @@ app.get('/api/env', async (req, res) => {
 });
 
 app.post('/api/chat', trustGate, async (req, res) => {
-  const { message, provider, model, temperature, maxTokens, callerId, image, imageUrl, imageMime } = req.body;
+  const { message, provider, model, temperature, maxTokens, callerId, photos, documents } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
 
   const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
@@ -122,9 +122,8 @@ app.post('/api/chat', trustGate, async (req, res) => {
       sessionId,
       callerId: callerId || null,
       chain: envReport?.chain?.length ? envReport.chain : undefined,
-      image: image || null,
-      imageUrl: imageUrl || null,
-      imageMime: imageMime || null,
+      photos: photos || [],
+      documents: documents || [],
       options: { provider, model, temperature, maxTokens }
     });
 

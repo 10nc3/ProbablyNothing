@@ -336,73 +336,58 @@ test('empty query is light', () => {
 });
 
 // ═══════════════════════════════════════════
-// vision passthrough
+// multimodal passthrough
 // ═══════════════════════════════════════════
 const { callNyanAPI, atomicQuery: atomicQ } = require('../lib/nyan-api');
 const axios = require('axios');
 
-console.log('\n\x1b[1m── vision passthrough ──\x1b[0m\n');
+console.log('\n\x1b[1m── multimodal passthrough ──\x1b[0m\n');
 
-test('callNyanAPI builds vision payload with base64 image', async () => {
-  const fakeBase64 = 'iVBORw0KGgoAAAANSUhEUg==';
+test('callNyanAPI builds multimodal payload with photos', async () => {
+  const fakePhoto = 'iVBORw0KGgoAAAANSUhEUg==';
   const origPost = axios.post;
   let capturedPayload = null;
   axios.post = async (url, payload) => {
     capturedPayload = payload;
-    return { data: { success: true, response: 'saw it' } };
+    return { data: { success: true, response: 'saw photos' } };
   };
   try {
-    await callNyanAPI('what is in this image?', { image: fakeBase64, imageMime: 'image/png' });
-    assert.ok(capturedPayload.vision, 'payload should have vision field');
-    assert.strictEqual(capturedPayload.vision.image, fakeBase64);
-    assert.strictEqual(capturedPayload.vision.mime, 'image/png');
+    await callNyanAPI('what is in these photos?', { photos: [fakePhoto] });
+    assert.ok(Array.isArray(capturedPayload.photos), 'payload should have photos array');
+    assert.strictEqual(capturedPayload.photos[0], fakePhoto);
   } finally {
     axios.post = origPost;
   }
 });
 
-test('callNyanAPI builds vision payload with imageUrl', async () => {
+test('callNyanAPI builds multimodal payload with documents', async () => {
   const origPost = axios.post;
   let capturedPayload = null;
   axios.post = async (url, payload) => {
     capturedPayload = payload;
-    return { data: { success: true, response: 'saw url' } };
+    return { data: { success: true, response: 'saw docs' } };
   };
   try {
-    await callNyanAPI('describe this', { imageUrl: 'https://example.com/photo.png' });
-    assert.ok(capturedPayload.vision, 'payload should have vision field');
-    assert.strictEqual(capturedPayload.vision.url, 'https://example.com/photo.png');
+    const doc = { name: 'test.pdf', data: 'base64', type: 'pdf' };
+    await callNyanAPI('summarize this', { documents: [doc] });
+    assert.ok(Array.isArray(capturedPayload.documents), 'payload should have documents array');
+    assert.strictEqual(capturedPayload.documents[0].name, 'test.pdf');
   } finally {
     axios.post = origPost;
   }
 });
 
-test('callNyanAPI omits vision when no image provided', async () => {
+test('atomicQuery passes multimodal opts through', async () => {
   const origPost = axios.post;
   let capturedPayload = null;
   axios.post = async (url, payload) => {
     capturedPayload = payload;
-    return { data: { success: true, response: 'text only' } };
+    return { data: { success: true, response: 'multimodal atomic' } };
   };
   try {
-    await callNyanAPI('just a text query');
-    assert.strictEqual(capturedPayload.vision, undefined);
-  } finally {
-    axios.post = origPost;
-  }
-});
-
-test('atomicQuery passes vision opts through', async () => {
-  const origPost = axios.post;
-  let capturedPayload = null;
-  axios.post = async (url, payload) => {
-    capturedPayload = payload;
-    return { data: { success: true, response: 'vision atomic' } };
-  };
-  try {
-    await atomicQ('what is this?', 'vision', { image: 'base64data', imageMime: 'image/jpeg' });
-    assert.ok(capturedPayload.vision);
-    assert.strictEqual(capturedPayload.vision.image, 'base64data');
+    await atomicQ('process this', 'multimodal', { photos: ['data'], documents: [{ name: 'a.txt' }] });
+    assert.ok(capturedPayload.photos);
+    assert.ok(capturedPayload.documents);
   } finally {
     axios.post = origPost;
   }
