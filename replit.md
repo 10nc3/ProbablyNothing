@@ -39,31 +39,29 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - **Localhost trust gate** — RFC1918/loopback IPs trusted on POST endpoints; public IPs require `Authorization: Bearer <SESSION_SECRET>`. No SESSION_SECRET set = open (dev mode).
 - **Context window clamping** — CONTEXT_LIMITS map per provider auto-clamps maxTokens before each LLM call, preventing silent overflow when falling from large-context to small-context provider.
 - **Exec safety guard** — DANGEROUS_PATTERNS blocklist in void-pipeline blocks destructive commands (rm -rf, dd if=, fork bombs, chmod 777 /, shutdown) in prescribe mode before they reach the LLM. PicoClaw-inspired.
-- **Path traversal protection** — context-router.js validates all file paths stay within WORKSPACE root. No absolute path injection.
+- **Path traversal protection** — intent-detector.js validates all file paths stay within WORKSPACE root. No absolute path injection.
 - **Workspace portability** — `OPENCLAW_WORKSPACE` env var overrides workspace root; defaults to project root. Portable across local/cloud/container.
 
 ## Project Structure
 
 - `index.js` - Express entry point with env detection + TUI boot sequence
-- `lib/` - Core library modules (18 modules)
+- `lib/` - Core library modules (16 modules)
   - `llm-client.js` - Multi-provider LLM router with configurable fallback chains
   - `nyan-api.js` - nyanbook.io API client (atomic logic, psi-ema)
   - `void-pipeline.js` - Unified O(n) single-pass pipeline orchestrator
   - `env-detect.js` - Startup environment detection (Ollama probe, API key check, runtime detect)
   - `startup-tui.js` - Terminal UI banner with colored status output
+  - `intent-detector.js` - Consolidated intent detection: MoE context routing, forex detection, design question detection (replaces context-router + forex-fetcher + code-context)
   - `preflight-router.js` - Request preflight routing
-  - `context-router.js` - Context-aware MoE expert file injection
   - `model-fallback.js` - Model fallback logic (legacy CLI tool)
   - `memory-manager.js` - Session memory management (shared across modes/providers)
   - `psi-ema.js` - Psi-EMA financial analysis + documentation
   - `stock-fetcher.js` - Stock data fetching
   - `financial-physics.js` - Financial physics calculations
-  - `forex-fetcher.js` - Forex data fetching
   - `legal-analysis.js` - Legal analysis tools
   - `web-search.js` - Web search integration
   - `data-package.js` - Data packaging
   - `mode-registry.js` - Mode registry
-  - `code-context.js` - Code context analysis
   - `index.js` - Barrel export (unified module interface)
   - `README.md` - Kernel+Satellites architecture documentation
 - `lib/hooks/` - Integration hooks (e.g., WhatsApp via Twilio)
@@ -164,3 +162,4 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
   - forex-fetcher.js: Implemented real isForexQuery(), detectForexPair() (15 major pairs + aliases), fetchForexRate() via Nyan API atomic, buildForexContext() for pipeline injection
   - void-pipeline.js: Wired forex + design intents into detectIntents() and pipeline flow — forex fetches rates via Nyan API, design injects PHILOSOPHY.md context
   - 140 tests passing (added 27 new tests for all de-stubbed modules)
+- 2026-02-14: Consolidated context-router.js + forex-fetcher.js + code-context.js → intent-detector.js (4 modules → 1, ~880 lines → ~220 lines, cached PHILOSOPHY.md reads, single regex compilation). Updated all consumers (void-pipeline, preflight-router, barrel export, tests). 140 tests passing.
