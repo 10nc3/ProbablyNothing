@@ -156,3 +156,11 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Seed metric wired into void-pipeline — detectIntents() detects seed-metric intent, extractCity() parses city from query, pipeline auto-fetches + calculates when city found, falls back to context injection when no city detected.
 - 2026-02-14: Removed P/I ratio entirely from seed metric — regime classification purely by years-to-mortgage: FATALISM >25yrs, PHI-BREATHING 10-25yrs, OPTIMISM <10yrs.
 - 2026-02-14: 113 tests passing (added parser tests, pipeline integration tests for seed-metric cascade).
+- 2026-02-14: De-stubbed all modules for Ollama-only operation:
+  - memory-manager.js: Replaced hardcoded Groq API call with callWithFallback() — memory summarization now works on any available provider (Ollama, cloud, whatever's in the chain)
+  - stock-fetcher.js: Replaced hardcoded Groq extractTickerWithAI() with callWithFallback() — AI ticker extraction works on Ollama
+  - llm-client.js: Fixed callOllama() to send num_predict (not max_tokens) and num_ctx for context window control — small models like Qwen 2.5B now get proper options
+  - code-context.js: Implemented real isDesignQuestion() (regex for architecture/design/pattern keywords) and getSystemContextForDesign() (injects PHILOSOPHY.md + lib/README.md)
+  - forex-fetcher.js: Implemented real isForexQuery(), detectForexPair() (15 major pairs + aliases), fetchForexRate() via Nyan API atomic, buildForexContext() for pipeline injection
+  - void-pipeline.js: Wired forex + design intents into detectIntents() and pipeline flow — forex fetches rates via Nyan API, design injects PHILOSOPHY.md context
+  - 140 tests passing (added 27 new tests for all de-stubbed modules)

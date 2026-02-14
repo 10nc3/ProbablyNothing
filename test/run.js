@@ -826,6 +826,133 @@ test('atomicQuery passes multimodal opts through', async () => {
 });
 
 // ═══════════════════════════════════════════
+// code-context.js (was stub, now real)
+// ═══════════════════════════════════════════
+const { isDesignQuestion, getSystemContextForDesign, DESIGN_KEYWORDS, PHILOSOPHY_KEYWORDS } = require('../lib/code-context');
+
+console.log('\n\x1b[1m── code-context ──\x1b[0m');
+
+test('isDesignQuestion: architecture', () => assert.ok(isDesignQuestion('how should I architect this system?')));
+test('isDesignQuestion: refactor', () => assert.ok(isDesignQuestion('refactor the database layer')));
+test('isDesignQuestion: pattern', () => assert.ok(isDesignQuestion('what design pattern works here?')));
+test('isDesignQuestion: phi/kernel keywords', () => assert.ok(isDesignQuestion('explain the kernel and satellite approach')));
+test('isDesignQuestion: false for weather', () => assert.ok(!isDesignQuestion('what is the weather today?')));
+test('isDesignQuestion: false for null', () => assert.ok(!isDesignQuestion(null)));
+test('getSystemContextForDesign returns array', () => {
+  const ctx = getSystemContextForDesign();
+  assert.ok(Array.isArray(ctx));
+});
+
+// ═══════════════════════════════════════════
+// forex-fetcher.js (was stub, now real)
+// ═══════════════════════════════════════════
+const { isForexQuery: isFQ, detectForexPair: detectFP, buildForexContext: buildFC, FOREX_PAIRS } = require('../lib/forex-fetcher');
+
+console.log('\n\x1b[1m── forex-fetcher ──\x1b[0m');
+
+test('isForexQuery: "what is the EUR/USD rate"', () => assert.ok(isFQ('what is the EUR/USD rate')));
+test('isForexQuery: "forex trading"', () => assert.ok(isFQ('forex trading tips')));
+test('isForexQuery: "dollar yen exchange rate"', () => assert.ok(isFQ('dollar yen exchange rate')));
+test('isForexQuery: "convert euro to dollar"', () => assert.ok(isFQ('convert euro to dollar')));
+test('isForexQuery: false for "tell me a joke"', () => assert.ok(!isFQ('tell me a joke')));
+test('isForexQuery: false for null', () => assert.ok(!isFQ(null)));
+test('detectForexPair: EUR/USD', () => assert.strictEqual(detectFP('what is EUR/USD'), 'EUR/USD'));
+test('detectForexPair: dollar yen', () => assert.strictEqual(detectFP('dollar yen rate'), 'USD/JPY'));
+test('detectForexPair: rupiah', () => assert.strictEqual(detectFP('how much is rupiah'), 'USD/IDR'));
+test('detectForexPair: null for unrelated', () => assert.strictEqual(detectFP('hello world'), null));
+test('buildForexContext: returns context for EUR/USD', () => {
+  const ctx = buildFC('what is EUR/USD rate');
+  assert.ok(ctx);
+  assert.strictEqual(ctx.type, 'forex');
+  assert.strictEqual(ctx.pair, 'EUR/USD');
+  assert.ok(ctx.systemPrompt.includes('EUR/USD'));
+});
+test('buildForexContext: null for non-forex', () => assert.strictEqual(buildFC('hello'), null));
+test('FOREX_PAIRS has major pairs', () => {
+  assert.ok(FOREX_PAIRS['EUR/USD']);
+  assert.ok(FOREX_PAIRS['USD/JPY']);
+  assert.ok(FOREX_PAIRS['GBP/USD']);
+  assert.ok(FOREX_PAIRS['USD/IDR']);
+});
+
+// ═══════════════════════════════════════════
+// llm-client.js (Ollama num_predict fix)
+// ═══════════════════════════════════════════
+console.log('\n\x1b[1m── llm-client (Ollama opts) ──\x1b[0m');
+
+test('callOllama sends num_predict and num_ctx in options', async () => {
+  const { callOllama, CONTEXT_LIMITS, PROVIDERS } = require('../lib/llm-client');
+  const origPost = axios.post;
+  let capturedBody = null;
+  axios.post = async (url, body) => {
+    capturedBody = body;
+    return { data: { message: { content: 'test response' } } };
+  };
+  try {
+    await callOllama([{ role: 'user', content: 'hi' }], { maxTokens: 500, temperature: 0.5 });
+    assert.ok(capturedBody.options, 'should have options field');
+    assert.strictEqual(capturedBody.options.num_predict, 500, 'num_predict should be 500');
+    assert.strictEqual(capturedBody.options.temperature, 0.5, 'temperature should be 0.5');
+    const expectedCtx = CONTEXT_LIMITS[PROVIDERS.OLLAMA].contextWindow;
+    assert.strictEqual(capturedBody.options.num_ctx, expectedCtx, `num_ctx should be ${expectedCtx}`);
+    assert.strictEqual(capturedBody.stream, false, 'stream should be false');
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+// ═══════════════════════════════════════════
+// pipeline: forex + design intent detection
+// ═══════════════════════════════════════════
+console.log('\n\x1b[1m── pipeline: forex + design intents ──\x1b[0m');
+
+test('detectIntents: forex query detected', () => {
+  const intents = detectIntents('what is the EUR/USD exchange rate');
+  assert.ok(intents.some(i => i.type === 'forex'), 'should have forex intent');
+  const fx = intents.find(i => i.type === 'forex');
+  assert.strictEqual(fx.pair, 'EUR/USD');
+});
+
+test('detectIntents: design query detected', () => {
+  const intents = detectIntents('how should I architect this microservice?');
+  assert.ok(intents.some(i => i.type === 'design'), 'should have design intent');
+});
+
+test('detectIntents: forex not triggered on unrelated', () => {
+  const intents = detectIntents('hello world');
+  assert.ok(!intents.some(i => i.type === 'forex'));
+});
+
+test('detectIntents: design not triggered on unrelated', () => {
+  const intents = detectIntents('what is 2+2');
+  assert.ok(!intents.some(i => i.type === 'design'));
+});
+
+// ═══════════════════════════════════════════
+// memory-manager: uses callWithFallback (no hardcoded Groq)
+// ═══════════════════════════════════════════
+console.log('\n\x1b[1m── memory-manager (no hardcoded Groq) ──\x1b[0m');
+
+test('memory-manager imports callWithFallback, not hardcoded Groq', () => {
+  const memSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib', 'memory-manager.js'), 'utf-8');
+  assert.ok(memSrc.includes("require('./llm-client')"), 'should import from llm-client');
+  assert.ok(!memSrc.includes('GROQ_API_URL'), 'should not have hardcoded GROQ_API_URL');
+  assert.ok(!memSrc.includes('SUMMARY_MODEL'), 'should not have hardcoded SUMMARY_MODEL');
+});
+
+// ═══════════════════════════════════════════
+// stock-fetcher: uses callWithFallback (no hardcoded Groq)
+// ═══════════════════════════════════════════
+console.log('\n\x1b[1m── stock-fetcher (no hardcoded Groq) ──\x1b[0m');
+
+test('extractTickerWithAI imports callWithFallback, not hardcoded Groq', () => {
+  const sfSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib', 'stock-fetcher.js'), 'utf-8');
+  assert.ok(sfSrc.includes("require('./llm-client')"), 'should import from llm-client');
+  assert.ok(!sfSrc.includes("'https://api.groq.com"), 'should not have hardcoded Groq URL');
+  assert.ok(!sfSrc.includes('GROQ_API_KEY'), 'should not gate on GROQ_API_KEY');
+});
+
+// ═══════════════════════════════════════════
 // Summary
 // ═══════════════════════════════════════════
 console.log(`\n\x1b[1m── results ──\x1b[0m`);
