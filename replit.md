@@ -73,7 +73,9 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - `PHILOSOPHY.md` - Philosophical framework + Kernel+Satellites φ² code philosophy
 - `SOUL.md` - Core identity traits
 - `ONBOARDING.md` - Setup guide with troubleshooting
+- `SETUP.md` - Quick start: install, env vars, deployment paths, smoke tests
 - `TOOLS.md` - Local tool notes, model stack (cloud-first, Ollama substrate), Nyan API strategy
+- `test/run.js` - 56 tests: pipeline logic, security guards, env detection, context routing (node test/run.js)
 
 ## API Endpoints
 
