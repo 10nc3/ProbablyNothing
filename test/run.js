@@ -385,6 +385,176 @@ test('getPsiEMA falls back to atomic on endpoint failure', async () => {
 });
 
 // ═══════════════════════════════════════════
+// mode-registry.js
+// ═══════════════════════════════════════════
+const { detectCodeMode, getLanguageFromExtension, EXTENSION_MAP } = require('../lib/mode-registry');
+
+console.log('\n\x1b[1m── mode-registry ──\x1b[0m\n');
+
+test('getLanguageFromExtension detects .js', () => {
+  assert.strictEqual(getLanguageFromExtension('app.js'), 'javascript');
+});
+
+test('getLanguageFromExtension detects .py', () => {
+  assert.strictEqual(getLanguageFromExtension('main.py'), 'python');
+});
+
+test('getLanguageFromExtension detects .rs', () => {
+  assert.strictEqual(getLanguageFromExtension('lib.rs'), 'rust');
+});
+
+test('getLanguageFromExtension detects .go', () => {
+  assert.strictEqual(getLanguageFromExtension('main.go'), 'go');
+});
+
+test('getLanguageFromExtension returns null for unknown', () => {
+  assert.strictEqual(getLanguageFromExtension('data.xyz'), null);
+});
+
+test('getLanguageFromExtension handles null', () => {
+  assert.strictEqual(getLanguageFromExtension(null), null);
+});
+
+test('detectCodeMode detects from attachment filename', () => {
+  const result = detectCodeMode([{ fileName: 'server.ts' }], []);
+  assert.ok(result.detected);
+  assert.strictEqual(result.language, 'typescript');
+  assert.strictEqual(result.fileName, 'server.ts');
+});
+
+test('detectCodeMode detects from code pattern in text', () => {
+  const result = detectCodeMode([], [{ text: 'def hello():\n  return True', fileName: 'snippet' }]);
+  assert.ok(result.detected);
+  assert.strictEqual(result.language, 'python');
+});
+
+test('detectCodeMode detects JS patterns', () => {
+  const result = detectCodeMode([], [{ text: 'const x = require("express")', fileName: 'query.txt' }]);
+  assert.ok(result.detected);
+  assert.strictEqual(result.language, 'javascript');
+});
+
+test('detectCodeMode returns not detected for plain text', () => {
+  const result = detectCodeMode([], [{ text: 'hello how are you today', fileName: 'query.txt' }]);
+  assert.ok(!result.detected);
+});
+
+test('detectCodeMode handles empty inputs', () => {
+  const result = detectCodeMode([], []);
+  assert.ok(!result.detected);
+});
+
+// ═══════════════════════════════════════════
+// seed-metric.js
+// ═══════════════════════════════════════════
+const {
+  measureAffordability,
+  solveIdentity,
+  compareTimePeriods: comparePeriods,
+  detectSeedMetricIntent,
+  getSeedMetricProxy,
+  formatSeedMetric,
+  PHI: SM_PHI
+} = require('../prompts/seed-metric');
+
+console.log('\n\x1b[1m── seed-metric ──\x1b[0m\n');
+
+test('solveIdentity returns PHI when sigma=0', () => {
+  const A = solveIdentity(0);
+  assert.ok(Math.abs(A - SM_PHI) < 0.001, `expected ~1.618, got ${A}`);
+});
+
+test('solveIdentity increases with positive sigma', () => {
+  const A = solveIdentity(1);
+  assert.ok(A > SM_PHI, `expected > PHI, got ${A}`);
+});
+
+test('solveIdentity decreases with negative sigma', () => {
+  const A = solveIdentity(-0.5);
+  assert.ok(A < SM_PHI, `expected < PHI, got ${A}`);
+});
+
+test('measureAffordability FATALISM regime', () => {
+  const r = measureAffordability({ city: 'Tokyo', year: 2024, landPricePerSqm: 800, medianIncome: 60000 });
+  assert.strictEqual(r.regime, 'FATALISM');
+  assert.ok(r.ratio > 8);
+  assert.strictEqual(r.city, 'Tokyo');
+});
+
+test('measureAffordability OPTIMISM regime', () => {
+  const r = measureAffordability({ city: 'Tokyo', year: 1975, landPricePerSqm: 50, medianIncome: 30000 });
+  assert.strictEqual(r.regime, 'OPTIMISM');
+  assert.ok(r.ratio < 3);
+});
+
+test('measureAffordability PHI-BREATHING regime', () => {
+  const r = measureAffordability({ city: 'Test', year: 2024, landPricePerSqm: 30, medianIncome: 4000 });
+  assert.strictEqual(r.regime, 'PHI-BREATHING');
+  assert.ok(r.ratio >= 3 && r.ratio <= 8, `ratio ${r.ratio} should be in [3, 8]`);
+});
+
+test('measureAffordability returns all expected fields', () => {
+  const r = measureAffordability({ city: 'X', year: 2024, landPricePerSqm: 100, medianIncome: 50000 });
+  assert.ok('totalPrice' in r);
+  assert.ok('ratio' in r);
+  assert.ok('regime' in r);
+  assert.ok('sigma' in r);
+  assert.ok('identityValue' in r);
+  assert.ok('phiDeviation' in r);
+  assert.ok('metadata' in r);
+});
+
+test('compareTimePeriods detects WORSENING', () => {
+  const m1 = measureAffordability({ city: 'Tokyo', year: 1975, landPricePerSqm: 50, medianIncome: 30000 });
+  const m2 = measureAffordability({ city: 'Tokyo', year: 2024, landPricePerSqm: 800, medianIncome: 60000 });
+  const c = comparePeriods(m1, m2);
+  assert.strictEqual(c.direction, 'WORSENING');
+  assert.ok(c.regimeChange.includes('OPTIMISM'));
+  assert.ok(c.regimeChange.includes('FATALISM'));
+});
+
+test('compareTimePeriods detects stable regime', () => {
+  const m1 = measureAffordability({ city: 'A', year: 2020, landPricePerSqm: 500, medianIncome: 50000 });
+  const m2 = measureAffordability({ city: 'A', year: 2024, landPricePerSqm: 550, medianIncome: 50000 });
+  const c = comparePeriods(m1, m2);
+  assert.strictEqual(c.regimeChange, 'stable');
+});
+
+test('detectSeedMetricIntent matches housing patterns', () => {
+  assert.ok(detectSeedMetricIntent('what about housing affordability'));
+  assert.ok(detectSeedMetricIntent('the housing crisis in Seoul'));
+  assert.ok(detectSeedMetricIntent('700 m2 per household'));
+  assert.ok(detectSeedMetricIntent('seed metric analysis'));
+  assert.ok(detectSeedMetricIntent('demographic collapse and fertility rate'));
+});
+
+test('detectSeedMetricIntent rejects unrelated queries', () => {
+  assert.ok(!detectSeedMetricIntent('what is 2+2'));
+  assert.ok(!detectSeedMetricIntent('hello'));
+  assert.ok(!detectSeedMetricIntent(null));
+});
+
+test('getSeedMetricProxy returns context string', () => {
+  const ctx = getSeedMetricProxy();
+  assert.ok(ctx.includes('SEED METRIC'));
+  assert.ok(ctx.includes('700'));
+  assert.ok(ctx.includes('FATALISM'));
+  assert.ok(ctx.includes('PHI'));
+});
+
+test('formatSeedMetric formats result correctly', () => {
+  const r = measureAffordability({ city: 'Seoul', year: 2024, landPricePerSqm: 1000, medianIncome: 50000 });
+  const formatted = formatSeedMetric(r);
+  assert.ok(formatted.includes('Seoul'));
+  assert.ok(formatted.includes('2024'));
+  assert.ok(formatted.includes('FATALISM'));
+});
+
+test('formatSeedMetric handles null', () => {
+  assert.ok(formatSeedMetric(null).includes('no data'));
+});
+
+// ═══════════════════════════════════════════
 // env-detect.js
 // ═══════════════════════════════════════════
 const {
