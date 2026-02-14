@@ -56,12 +56,16 @@ Built at startup from detected providers. Priority: Ollama (local) first, then c
   - `data-package.js` - Data packaging
   - `mode-registry.js` - Mode registry
   - `code-context.js` - Code context analysis
+  - `index.js` - Barrel export (unified module interface)
+  - `README.md` - Kernel+Satellites architecture documentation
 - `lib/hooks/` - Integration hooks (e.g., WhatsApp via Twilio)
 - `memory/` - Session memory files
 - `prompts/` - Prompt templates
 - `IDENTITY.md` - AI personality and identity definition
-- `PHILOSOPHY.md` - Philosophical framework
+- `PHILOSOPHY.md` - Philosophical framework + Kernel+Satellites φ² code philosophy
 - `SOUL.md` - Core identity traits
+- `ONBOARDING.md` - Setup guide with troubleshooting
+- `TOOLS.md` - Local tool notes, model stack (Ollama-first), Nyan API strategy
 
 ## API Endpoints
 
@@ -97,8 +101,15 @@ Built at startup from detected providers. Priority: Ollama (local) first, then c
 - `GROQ_API_KEY` - Groq API key
 - `OPENAI_API_KEY` - OpenAI API key
 
+## Repo References
+
+- **Thesis:** `10nc3/ProbablyNothing` — hardened version (this codebase)
+- **Antithesis:** `johnjames-bit/nyanclaw` — OpenClaw's v2.0 restructure
+- **Synthesis:** Merged best of both — our env-detect/TUI + their Kernel+Satellites docs, ONBOARDING, barrel export
+
 ## Recent Changes
 
+- 2026-02-14: Synthesis — merged OpenClaw v2.0 docs (ONBOARDING.md, Kernel+Satellites section in PHILOSOPHY.md, lib/README.md, lib/index.js barrel, TOOLS.md Ollama-first model stack + Nyan API strategy)
 - 2026-02-14: Added startup env detection + TUI banner (env-detect.js, startup-tui.js)
 - 2026-02-14: Dynamic fallback chain built from detected providers (not hardcoded)
 - 2026-02-14: Added /api/env endpoint for runtime environment status
