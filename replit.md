@@ -13,14 +13,14 @@ Preferred communication style: Simple, everyday language.
 ### Unified Pipeline (void-pipeline.js)
 Single O(n) pass orchestrator. No duplicate routing, no hanging endpoints.
 1. DETECT — parallel regex branches (identity? psi-ema? stock? legal? forex? code?)
-2. GATE — privilege check for prescribe mode (+628116360610 only)
+2. GATE — privilege check for prescribe mode (PRIVILEGED_CALLER_ID only)
 2b. SAFETY — exec safety guard blocks dangerous patterns (rm -rf, dd, fork bombs) in prescribe mode (PicoClaw-inspired)
 3. CONTEXT — MoE expert file injection (IDENTITY.md, PHILOSOPHY.md) + session memory
 4. CALL — single LLM call via dynamic fallback chain (maxTokens auto-clamped per provider)
 5. SIGN — personality stamp (regex, not LLM)
 
 ### Three Modes
-- **prescribe** — build/kernel/code (privileged, restricted to +628116360610)
+- **prescribe** — build/kernel/code (privileged, restricted to PRIVILEGED_CALLER_ID)
 - **scribe** — create/docs/legal (open)
 - **describe** — chat/general (open)
 
@@ -103,6 +103,7 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 
 - `NYAN_API_TOKEN` - nyanbook.io API authentication (secret)
 - `SESSION_SECRET` - Session encryption (secret)
+- `PRIVILEGED_CALLER_ID` - Comma-separated list of caller IDs allowed to use prescribe mode (no value = prescribe locked to everyone, secure by default)
 - `OLLAMA_URL` - Custom Ollama endpoint (optional, default: http://localhost:11434)
 - `OPENCLAW_WORKSPACE` - Workspace root override (optional, default: project root)
 - `MINIMAX_API_KEY` - MiniMax cloud API key
@@ -133,3 +134,4 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Added exec safety guard (DANGEROUS_PATTERNS blocklist in prescribe mode, PicoClaw-inspired)
 - 2026-02-14: Added workspace portability (OPENCLAW_WORKSPACE env var + path traversal protection)
 - 2026-02-14: Added chain hot-reload (GET /api/env?reload=true re-probes all providers)
+- 2026-02-14: Removed hardcoded phone number — prescribe privilege now env-driven via PRIVILEGED_CALLER_ID (comma-separated, secure-by-default: no value = locked)
