@@ -39,33 +39,33 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 ## Model Stack
 
-### Local-First = Substrate Defense (φ-ontology)
+### Cloud-First, Local Substrate (φ-ontology)
 
 **Philosophy:**
-- **Local (00)** = substrate — fastest, private, always tried first
-- **Cloud (φ¹)** = fallback — when local unavailable or overloaded
+- **Cloud (φ¹)** = primary — fast, smart, always tried first
+- **Local (00)** = substrate — last defense, only when cloud fails/refuses
 
 ```
-Local (Ollama) → [fails] → Cloud (MiniMax/Claude/Groq) → [fails] → Error
+Cloud (MiniMax) → [fails] → Cloud (Groq/Claude) → [fails] → Local (Ollama) → [fails] → Error
 ```
 
-"The ground runs first. The sky holds when the ground can't."
+"The sky runs first. The ground holds when the sky falls."
 
 | Model | Role | Context |
 |-------|------|---------|
-| Qwen2.5 Coder 7B | Primary (00) — local substrate | 128k |
-| MiniMax-M2.5 | Cloud fallback (φ¹) | 200k |
-| Claude | Cloud fallback (φ¹) | 200k |
+| MiniMax-M2.5 | Primary (φ¹) | 200k |
 | Groq | Cloud fallback (φ¹) — fast inference | 128k |
+| Claude | Cloud fallback (φ¹) | 200k |
+| Qwen2.5 Coder 7B | Substrate (00) — local last resort | 128k |
 
 ### Dynamic Chain
 
 Built at startup from detected providers. Priority order:
-1. Ollama (local) — always first if running
-2. MiniMax — if MINIMAX_API_KEY set
-3. Groq — if GROQ_API_KEY set
-4. Claude — if ANTHROPIC_API_KEY set
-5. OpenAI — if OPENAI_API_KEY set
+1. MiniMax — if MINIMAX_API_KEY set (primary)
+2. Groq — if GROQ_API_KEY set
+3. Claude — if ANTHROPIC_API_KEY set
+4. OpenAI — if OPENAI_API_KEY set
+5. Ollama (local) — substrate, always last if running
 
 ### Manual Override
 

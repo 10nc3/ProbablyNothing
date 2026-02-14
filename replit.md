@@ -32,7 +32,7 @@ At boot, the system:
 5. Prints colored TUI banner with full status and guidance
 
 ### Dynamic Fallback Chain
-Built at startup from detected providers. Priority: Ollama (local) first, then cloud providers in order of configured keys. No hardcoded chain — adapts to environment.
+Built at startup from detected providers. Priority: Cloud providers first (MiniMax, Groq, Claude, OpenAI), then Ollama (local) last as substrate safety net. No hardcoded chain — adapts to environment.
 
 ## Project Structure
 
@@ -65,7 +65,7 @@ Built at startup from detected providers. Priority: Ollama (local) first, then c
 - `PHILOSOPHY.md` - Philosophical framework + Kernel+Satellites φ² code philosophy
 - `SOUL.md` - Core identity traits
 - `ONBOARDING.md` - Setup guide with troubleshooting
-- `TOOLS.md` - Local tool notes, model stack (Ollama-first), Nyan API strategy
+- `TOOLS.md` - Local tool notes, model stack (cloud-first, Ollama substrate), Nyan API strategy
 
 ## API Endpoints
 
@@ -81,8 +81,8 @@ Built at startup from detected providers. Priority: Ollama (local) first, then c
 
 - **Runtime**: Node.js (CommonJS modules)
 - **Framework**: Express.js 5
-- **AI Providers**: Ollama (local, preferred), MiniMax (cloud), Claude (cloud), Groq (cloud), OpenAI (cloud)
-- **Fallback Chain**: Dynamic — built at startup from available providers. Ollama always first if available.
+- **AI Providers**: MiniMax (cloud, primary), Groq (cloud), Claude (cloud), OpenAI (cloud), Ollama (local, substrate)
+- **Fallback Chain**: Dynamic — built at startup from available providers. Cloud first, Ollama last as substrate safety net.
 - **Integrations**: Twilio (WhatsApp), Axios (HTTP), nyanbook.io API
 - **Security**: Helmet, CORS, express-rate-limit, trust proxy
 - **External Brain**: nyanbook.io API (NYAN_API_TOKEN secret)
@@ -109,7 +109,7 @@ Built at startup from detected providers. Priority: Ollama (local) first, then c
 
 ## Recent Changes
 
-- 2026-02-14: Synthesis — merged OpenClaw v2.0 docs (ONBOARDING.md, Kernel+Satellites section in PHILOSOPHY.md, lib/README.md, lib/index.js barrel, TOOLS.md Ollama-first model stack + Nyan API strategy)
+- 2026-02-14: Synthesis — merged OpenClaw v2.0 docs (ONBOARDING.md, Kernel+Satellites section in PHILOSOPHY.md, lib/README.md, lib/index.js barrel, TOOLS.md cloud-first model stack + Nyan API strategy)
 - 2026-02-14: Added startup env detection + TUI banner (env-detect.js, startup-tui.js)
 - 2026-02-14: Dynamic fallback chain built from detected providers (not hardcoded)
 - 2026-02-14: Added /api/env endpoint for runtime environment status

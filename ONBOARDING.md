@@ -14,14 +14,15 @@
   nyan-api: [ok] connected
 
   LLM PROVIDERS
-  [ok] ollama  localhost:11434
-       models: qwen2.5-coder:7b
   [ok] minimax (MINIMAX_API_KEY)
   [--] claude  set ANTHROPIC_API_KEY to enable
   [--] groq    set GROQ_API_KEY to enable
+  [--] openai  set OPENAI_API_KEY to enable
+  [ok] ollama  localhost:11434
+       models: qwen2.5-coder:7b
 
   FALLBACK CHAIN
-  ollama -> minimax
+  minimax -> ollama
 
   MODES
   prescribe  build/kernel  (privileged)
@@ -37,8 +38,8 @@ node index.js
 ```
 
 The startup TUI probes:
-- Ollama (localhost:11434) — local substrate (tried first)
-- Cloud providers — MiniMax, Claude, Groq, OpenAI (fallback)
+- Cloud providers — MiniMax, Groq, Claude, OpenAI (tried first, in order)
+- Ollama (localhost:11434) — local substrate (last resort when cloud fails)
 - Nyan API — atomic brain (nyanbook.io)
 - Runtime — local, cloud deploy, or replit-dev
 
@@ -48,20 +49,20 @@ The startup TUI probes:
 # Required
 export NYAN_API_TOKEN=your_token
 
-# Optional cloud providers (fallback when Ollama unavailable)
+# Primary cloud providers (tried first)
 export MINIMAX_API_KEY=your_key
-export ANTHROPIC_API_KEY=your_key
 export GROQ_API_KEY=your_key
+export ANTHROPIC_API_KEY=your_key
 ```
 
-### 4. Start Ollama (Recommended)
+### 4. Start Ollama (Substrate)
 
 ```bash
 ollama serve
 ollama pull qwen2.5-coder:7b
 ```
 
-Ollama is always first in the fallback chain when available. Fastest, private, no API costs.
+Ollama is the substrate — always last in the chain, holding the ground when cloud fails. No API costs, runs locally, never disappears.
 
 ### 5. Connect Channels
 
@@ -103,10 +104,10 @@ Some queries bypass the LLM entirely:
 
 | Issue | Fix |
 |-------|-----|
-| "No providers available" | Start Ollama: `ollama serve` or set a cloud API key |
+| "No providers available" | Set a cloud API key or start Ollama: `ollama serve` |
 | "Token missing" | Set NYAN_API_TOKEN in environment |
-| Ollama not found | `ollama serve` then restart server |
-| Wrong model priority | Check `/api/env` — chain should show ollama first |
+| Ollama not found | `ollama serve` then restart server (substrate backup) |
+| Wrong model priority | Check `/api/env` — chain should show cloud providers first, ollama last |
 | Replit-dev warning | Normal — deploy to own infra for production |
 
 ---
