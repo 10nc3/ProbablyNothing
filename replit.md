@@ -44,7 +44,7 @@ All dev/diagnostic utilities live at `/home/runner/.openclaw-tools/` — outside
 
 Three-generation memory: past anchor, present state, future direction.
 
-- **Nyanclaw anchor**: `26113d9` (main) — last verified synthesis. All prior clones purged.
+- **Nyanclaw anchor**: `8401ee3` (main) — last verified synthesis. PII scrubbed from git (phone placeholders). All prior clones purged.
 - **Sync tool**: `bash /home/runner/.openclaw-tools/sync-nyanclaw.sh` — lives outside workspace to avoid polluting OpenClaw git. Keeps exactly one shallow clone at `/tmp/nyanclaw-latest`, auto-purges stale copies, updates this anchor.
 - **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries).
 - **Future**: Hook system (disk JSONL logging, WhatsApp CC) exists in nyanclaw but not absorbed — deployment-specific to their infra. Discord native support lives in OpenClaw's vegapunk.js (multi-bot webhook architecture: Hermes, Thoth, Idris, Horus) — absorb from there when ready, don't reimplement.
