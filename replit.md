@@ -2,24 +2,52 @@
 
 ## Overview
 
-MY OPENCLAW is a personalized hybrid AI workspace. It routes between local Ollama models (Qwen) and cloud services (MiniMax, Claude) for optimal performance. Uses nyanbook.io API as the atomic logic/reasoning brain. Originally cloned from nyanclaw repository, audited, and hardened.
+MY OPENCLAW is a personalized hybrid AI workspace. Routes between local Ollama models (Qwen) and cloud services (MiniMax, Claude) for optimal performance. Uses nyanbook.io API as the atomic logic/reasoning brain. NOT Replit-powered — Replit is dev environment only. Production runs on user's own infra with local Ollama or cloud API keys.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
+## Architecture
+
+### Unified Pipeline (void-pipeline.js)
+Single O(n) pass orchestrator. No duplicate routing, no hanging endpoints.
+1. DETECT — parallel regex branches (identity? psi-ema? stock? legal? forex? code?)
+2. GATE — privilege check for prescribe mode (+628116360610 only)
+3. CONTEXT — MoE expert file injection (IDENTITY.md, PHILOSOPHY.md) + session memory
+4. CALL — single LLM call via dynamic fallback chain
+5. SIGN — personality stamp (regex, not LLM)
+
+### Three Modes
+- **prescribe** — build/kernel/code (privileged, restricted to +628116360610)
+- **scribe** — create/docs/legal (open)
+- **describe** — chat/general (open)
+
+### Startup Environment Detection
+At boot, the system:
+1. Probes Ollama at localhost:11434 for local model availability
+2. Checks all cloud API keys (MINIMAX, ANTHROPIC, GROQ, OPENAI)
+3. Detects runtime (local, cloud deploy, replit-dev)
+4. Builds dynamic fallback chain from what's actually available
+5. Prints colored TUI banner with full status and guidance
+
+### Dynamic Fallback Chain
+Built at startup from detected providers. Priority: Ollama (local) first, then cloud providers in order of configured keys. No hardcoded chain — adapts to environment.
+
 ## Project Structure
 
-- `index.js` - Express entry point (server, routes, health check)
-- `lib/` - Core library modules (16 modules)
+- `index.js` - Express entry point with env detection + TUI boot sequence
+- `lib/` - Core library modules (18 modules)
   - `llm-client.js` - Multi-provider LLM router with configurable fallback chains
   - `nyan-api.js` - nyanbook.io API client (atomic logic, psi-ema)
-  - `void-pipeline.js` - AI pipeline orchestration
+  - `void-pipeline.js` - Unified O(n) single-pass pipeline orchestrator
+  - `env-detect.js` - Startup environment detection (Ollama probe, API key check, runtime detect)
+  - `startup-tui.js` - Terminal UI banner with colored status output
   - `preflight-router.js` - Request preflight routing
-  - `context-router.js` - Context-aware routing
-  - `model-fallback.js` - Model fallback logic
-  - `memory-manager.js` - Session memory management
-  - `psi-ema.js` - Psi-EMA financial analysis
+  - `context-router.js` - Context-aware MoE expert file injection
+  - `model-fallback.js` - Model fallback logic (legacy CLI tool)
+  - `memory-manager.js` - Session memory management (shared across modes/providers)
+  - `psi-ema.js` - Psi-EMA financial analysis + documentation
   - `stock-fetcher.js` - Stock data fetching
   - `financial-physics.js` - Financial physics calculations
   - `forex-fetcher.js` - Forex data fetching
@@ -37,19 +65,20 @@ Preferred communication style: Simple, everyday language.
 
 ## API Endpoints
 
-- `GET /health` - Health check with provider status
-- `POST /api/chat` - Chat with fallback chain (message, provider, system, model)
+- `GET /health` - Health check with runtime, chain, and provider status
+- `GET /api/env` - Full environment status (runtime, ollama, providers, chain, guidance)
+- `POST /api/chat` - Unified pipeline chat (message, provider, model, callerId)
 - `POST /api/atomic` - Atomic logic query via nyanbook.io (message, domain)
 - `POST /api/psi-ema` - Psi-EMA financial analysis (ticker)
 - `POST /api/search` - Web search (query, count)
-- `GET /api/modules` - Module health status
+- `GET /api/modules` - Module health status (18 modules)
 
 ## Tech Stack
 
 - **Runtime**: Node.js (CommonJS modules)
 - **Framework**: Express.js 5
-- **AI Providers**: Ollama (local), MiniMax (cloud), Claude (cloud), Groq (cloud), OpenAI (cloud)
-- **Default Fallback Chain**: Ollama → MiniMax → Claude
+- **AI Providers**: Ollama (local, preferred), MiniMax (cloud), Claude (cloud), Groq (cloud), OpenAI (cloud)
+- **Fallback Chain**: Dynamic — built at startup from available providers. Ollama always first if available.
 - **Integrations**: Twilio (WhatsApp), Axios (HTTP), nyanbook.io API
 - **Security**: Helmet, CORS, express-rate-limit, trust proxy
 - **External Brain**: nyanbook.io API (NYAN_API_TOKEN secret)
@@ -58,16 +87,24 @@ Preferred communication style: Simple, everyday language.
 
 - axios, cors, express, express-rate-limit, helmet, twilio
 
-## Environment Secrets
+## Environment Variables
 
-- `NYAN_API_TOKEN` - nyanbook.io API authentication
-- `SESSION_SECRET` - Session encryption
+- `NYAN_API_TOKEN` - nyanbook.io API authentication (secret)
+- `SESSION_SECRET` - Session encryption (secret)
+- `OLLAMA_URL` - Custom Ollama endpoint (optional, default: http://localhost:11434)
+- `MINIMAX_API_KEY` - MiniMax cloud API key
+- `ANTHROPIC_API_KEY` - Claude API key
+- `GROQ_API_KEY` - Groq API key
+- `OPENAI_API_KEY` - OpenAI API key
 
 ## Recent Changes
 
-- 2026-02-14: Cloned nyanclaw repo, audited codebase, cut 49% bloat
-- 2026-02-14: Hardened llm-client.js with Claude support and configurable fallback chains
-- 2026-02-14: Moved NYAN_API_TOKEN to environment secrets
-- 2026-02-14: Removed 8 unused packages, kept 6 essential ones
-- 2026-02-14: Created index.js entry point with all API routes
-- 2026-02-14: Clean boot achieved: all 16 modules loading, server on port 5000
+- 2026-02-14: Added startup env detection + TUI banner (env-detect.js, startup-tui.js)
+- 2026-02-14: Dynamic fallback chain built from detected providers (not hardcoded)
+- 2026-02-14: Added /api/env endpoint for runtime environment status
+- 2026-02-14: Replit-dev detection with clear guidance for production deployment
+- 2026-02-14: Unified void-pipeline.js as O(n) single-pass orchestrator
+- 2026-02-14: 3-mode system (prescribe/scribe/describe) with privilege gating
+- 2026-02-14: Identity + psi-ema shortcuts (skip LLM, instant response)
+- 2026-02-14: Session memory shared across all modes and provider switches
+- 2026-02-14: Clean boot: all 18 modules loading, server on port 5000
