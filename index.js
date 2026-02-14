@@ -17,7 +17,7 @@ const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain } = require('./lib/llm-client'
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
 const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeline');
-const { measureAffordability, compareTimePeriods } = require('./prompts/seed-metric');
+const { measureAffordability, compareTimePeriods, autoSeedMetric, detectSeedMetricIntent, formatSeedMetric } = require('./prompts/seed-metric');
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
 
@@ -167,28 +167,44 @@ app.post('/api/psi-ema', trustGate, async (req, res) => {
 
 app.post('/api/seed-metric', trustGate, async (req, res) => {
   const { city, year, landPrice, income, compare } = req.body;
-  if (!city || !landPrice || !income) {
-    return res.status(400).json({ error: 'city, landPrice (per m^2), and income required' });
+  if (!city) {
+    return res.status(400).json({ error: 'city is required. Optionally provide landPrice and income, or omit them to auto-fetch.' });
   }
+
   try {
-    const result = measureAffordability({
-      city,
-      year: year || new Date().getFullYear(),
-      landPricePerSqm: Number(landPrice),
-      medianIncome: Number(income)
-    });
+    let result;
+
+    if (landPrice && income) {
+      result = measureAffordability({
+        city,
+        year: year || new Date().getFullYear(),
+        landPricePerSqm: Number(landPrice),
+        medianIncome: Number(income)
+      });
+    } else {
+      result = await autoSeedMetric(city, year);
+      if (result.error) {
+        return res.status(502).json(result);
+      }
+    }
 
     if (compare) {
-      const c = compare;
-      if (!c.city || !c.landPrice || !c.income) {
-        return res.status(400).json({ error: 'compare requires city, landPrice, income' });
+      let result2;
+      if (compare.landPrice && compare.income) {
+        result2 = measureAffordability({
+          city: compare.city || city,
+          year: compare.year || new Date().getFullYear(),
+          landPricePerSqm: Number(compare.landPrice),
+          medianIncome: Number(compare.income)
+        });
+      } else if (compare.city) {
+        result2 = await autoSeedMetric(compare.city, compare.year);
+        if (result2.error) {
+          return res.status(502).json(result2);
+        }
+      } else {
+        return res.status(400).json({ error: 'compare requires at least a city name' });
       }
-      const result2 = measureAffordability({
-        city: c.city,
-        year: c.year || new Date().getFullYear(),
-        landPricePerSqm: Number(c.landPrice),
-        medianIncome: Number(c.income)
-      });
       return res.json(compareTimePeriods(result, result2));
     }
 
