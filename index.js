@@ -16,7 +16,7 @@ const rateLimit = require('express-rate-limit');
 const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain } = require('./lib/llm-client');
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
-const { runPipeline } = require('./lib/void-pipeline');
+const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeline');
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
 
@@ -78,11 +78,12 @@ app.get('/health', (req, res) => {
 app.get('/api/env', async (req, res) => {
   if (req.query.reload === 'true') {
     try {
-      const freshReport = await detectEnvironment();
+      const canary = req.query.canary === 'true';
+      const freshReport = await detectEnvironment({ canary });
       envReport = freshReport;
       if (freshReport.chain.length > 0) {
         setDynamicChain(freshReport.chain);
-        console.log(`[openclaw] chain hot-reloaded: ${freshReport.chain.join(' -> ')}`);
+        console.log(`[openclaw] chain hot-reloaded${canary ? ' (canary)' : ''}: ${freshReport.chain.join(' -> ')}`);
       }
     } catch (e) {
       console.error(`[openclaw] chain reload failed: ${e.message}`);
@@ -110,7 +111,7 @@ app.get('/api/env', async (req, res) => {
 });
 
 app.post('/api/chat', trustGate, async (req, res) => {
-  const { message, provider, model, temperature, maxTokens, callerId } = req.body;
+  const { message, provider, model, temperature, maxTokens, callerId, image, imageUrl, imageMime } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
 
   const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
@@ -121,6 +122,9 @@ app.post('/api/chat', trustGate, async (req, res) => {
       sessionId,
       callerId: callerId || null,
       chain: envReport?.chain?.length ? envReport.chain : undefined,
+      image: image || null,
+      imageUrl: imageUrl || null,
+      imageMime: imageMime || null,
       options: { provider, model, temperature, maxTokens }
     });
 
@@ -128,9 +132,11 @@ app.post('/api/chat', trustGate, async (req, res) => {
       response: result.response,
       mode: result.mode,
       provider: result.provider,
+      complexity: result.complexity || null,
       shortcut: result.shortcut || null,
       intents: result.intents,
-      memory: result.memory || null
+      memory: result.memory || null,
+      audit: result.audit || null
     });
   } catch (e) {
     res.status(502).json({ error: e.message });
@@ -168,6 +174,18 @@ app.post('/api/search', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
+});
+
+app.get('/api/audit', trustGate, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const mode = req.query.mode || 'full';
+  if (mode === 'summary') {
+    return res.json(getAuditSummary());
+  }
+  res.json({
+    log: getAuditLog(limit),
+    summary: getAuditSummary()
+  });
 });
 
 app.get('/api/modules', (req, res) => {

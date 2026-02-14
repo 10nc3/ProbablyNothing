@@ -139,8 +139,12 @@ Built at startup from detected providers. Priority: Cloud providers first (MiniM
 - 2026-02-14: Added workspace portability (OPENCLAW_WORKSPACE env var + path traversal protection)
 - 2026-02-14: Added chain hot-reload (GET /api/env?reload=true re-probes all providers)
 - 2026-02-14: Removed hardcoded phone number — prescribe privilege now env-driven via PRIVILEGED_CALLER_ID (comma-separated, secure-by-default: no value = locked)
-- 2026-02-14: Added test/run.js — 56 tests (pipeline, security, env-detect, context-router) via node test/run.js
+- 2026-02-14: Added test/run.js — 66 tests (pipeline, security, env-detect, context-router, complexity, vision) via node test/run.js
 - 2026-02-14: Added SETUP.md — consolidated quick-start guide with one-liner hatch flow
 - 2026-02-14: Added setup.js — interactive hatch script (prompts for config, writes .env, boots server)
 - 2026-02-14: Added dotenv — .env file auto-loaded on boot (index.js)
 - 2026-02-14: Added nyandoctor.js — health check + auto-fix (dependencies, .env, privilege, API keys, Ollama, nyan API ping, port, core files, tests)
+- 2026-02-14: PicoClaw features: micro-audit trail (/api/audit), self-healing strike system (3 failures → demote, 5min cooldown), token budget tracking, canary probes at startup
+- 2026-02-14: NyanDoctor --json flag for CI/scripting machine-parseable output
+- 2026-02-14: Complexity-based routing — scoreComplexity() classifies light/medium/heavy, heavy queries route to Nyan atomic brain for reasoning
+- 2026-02-14: Vision passthrough — /api/chat accepts image (base64), imageUrl, imageMime; bundles with Nyan API vision payload
