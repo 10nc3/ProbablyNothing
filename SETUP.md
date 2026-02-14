@@ -6,7 +6,7 @@
 git clone https://github.com/10nc3/ProbablyNothing.git
 cd ProbablyNothing
 npm install
-node setup.js
+node /home/runner/.openclaw-tools/setup.js
 ```
 
 That's it. The setup script will:
@@ -106,8 +106,8 @@ Cloud runs first. Ollama holds the ground when the sky falls.
 ### Doctor (recommended)
 
 ```bash
-node nyandoctor.js          # diagnose — checks everything, read-only
-node nyandoctor.js --fix    # diagnose + auto-repair what it can
+node /home/runner/.openclaw-tools/nyandoctor.js          # diagnose — checks everything, read-only
+node /home/runner/.openclaw-tools/nyandoctor.js --fix    # diagnose + auto-repair what it can
 ```
 
 Checks: dependencies, .env, privilege config, cloud API keys, Ollama, nyan API (live ping), port 5000, core files, and runs all tests. Color-coded output.
@@ -141,7 +141,7 @@ node test/run.js
 | `Token missing` | Set `NYAN_API_TOKEN` in environment |
 | Ollama not found | Run `ollama serve` then restart the server |
 | Wrong chain priority | Check `GET /api/env` — cloud providers should appear before ollama |
-| `prescribe mode locked` | Set `PRIVILEGED_CALLER_ID` env var or re-run `node setup.js` |
+| `prescribe mode locked` | Set `PRIVILEGED_CALLER_ID` env var or re-run `node /home/runner/.openclaw-tools/setup.js` |
 | Replit-dev warning | Normal for development — deploy to your own infra for production |
 | Port conflict | Default is 5000. Check nothing else is bound to it |
 | Hot-reload chain | `curl http://localhost:5000/api/env?reload=true` to re-probe all providers |

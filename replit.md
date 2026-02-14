@@ -32,6 +32,14 @@ Key architectural features include:
 -   **API Integrations**: nyanbook.io API, Twilio (for WhatsApp integration)
 -   **Libraries**: axios, cors, express, express-rate-limit, helmet
 
+## External Tools (outside workspace)
+
+All dev/diagnostic utilities live at `/home/runner/.openclaw-tools/` — outside workspace to avoid git pollution. See `README.md` there for full docs.
+
+- `sync-nyanclaw.sh` — single-copy nyanclaw sync + auto-purge + anchor update
+- `nyandoctor.js` — diagnose/auto-fix (deps, env, APIs, tests)
+- `setup.js` — interactive first-hatch setup (prompts for keys, writes .env, boots server)
+
 ## Synthesis Memory (0+φ⁰+φ¹=φ²)
 
 Three-generation memory: past anchor, present state, future direction.
