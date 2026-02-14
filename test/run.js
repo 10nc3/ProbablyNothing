@@ -231,11 +231,21 @@ test('detects BREATHING reading', () => {
   assert.ok(result.includes('BREATHING'));
 });
 
+test('detects REVERSAL reading', () => {
+  const data = {
+    ticker: 'REV',
+    currentPrice: 90,
+    psi_ema_daily: { theta: 5, z: 0.5, r: 0.4 }
+  };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('REVERSAL'));
+});
+
 test('detects NEUTRAL reading', () => {
   const data = {
     ticker: 'DEF',
     currentPrice: 75,
-    psi_ema_daily: { theta: 2, z: 0.3, r: 0.3 }
+    psi_ema_daily: { theta: -1, z: 2.0, r: 0.3 }
   };
   const result = formatPsiEMA(data);
   assert.ok(result.includes('NEUTRAL'));
@@ -258,14 +268,26 @@ test('includes weekly data when present', () => {
   assert.ok(result.includes('STRONG BULL'));
 });
 
-test('shows NO DATA when weekly is missing', () => {
+test('shows N/A reading when weekly data missing', () => {
   const data = {
     ticker: 'AAPL',
     currentPrice: 150,
     psi_ema_daily: { theta: 5, z: 1.0, r: 2.0 }
   };
   const result = formatPsiEMA(data);
-  assert.ok(result.includes('Weekly: NO DATA'));
+  assert.ok(result.includes('Weekly:'));
+  assert.ok(result.includes('N/A'));
+});
+
+test('shows N/A reading when daily theta missing', () => {
+  const data = {
+    ticker: 'NODATA',
+    currentPrice: 100,
+    psi_ema_daily: {}
+  };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('Daily:'));
+  assert.ok(result.includes('N/A'));
 });
 
 test('handles alternate psiEma.daily format', () => {
