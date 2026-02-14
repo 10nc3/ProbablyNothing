@@ -1,0 +1,107 @@
+commentaries:
+ Every API response now includes a units object matched to the mode:
+* psi-ema: θ=°, z=σ, R=ratio, currentPrice=currency, pe=ratio, marketCap=currency, bars=count
+* seed-metric: pricePerSqm=currency/m², price700sqm=currency, income=currency/year, priceToIncome=ratio, yearsToOwn=years
+* forex: rate=ratio, amount=currency
+* general (fallback): confidence=%, processingMs=ms
+All defined in one shared API_UNITS constant so they stay consistent across the dedicated endpoint and the main API. OpenClaw can now format any mode's output with proper unit labels.
+ + 
+Done ✅ Pushed `7223ffc`
+
+**Fixed:**
+
+| Bug | Fix |
+|-----|-----|
+| NaN guard bypass | `parseVal()` checks isNaN before `?? 0` default |
+| Claude API format | Use top-level `system` parameter |
+| Ollama permanent skip | Removed - let error chain handle |
+| Memory hardcoded Groq | Now uses `callWithFallback()` |
+
+All bugs fixed and verified in `7223ffc`:
+
+| Bug | Status |
+|-----|--------|
+| NaN guard bypass | ✅ Fixed (`parseVal` helper) |
+| Claude API format | ✅ Fixed (top-level `system`) |
+| Memory hardcoded Groq | ✅ Fixed (`callWithFallback`) |
+| Ollama permanent skip | ✅ Removed |
+
+**Audit is stale** — it's looking at old commits. Current HEAD has all fixes.  from replit:
+{
+Synthesis Round 5 Audit — Hardening Comparison
+Both sides implemented the same 6 hardenings from the shared spec. Here's what I found:
+Feature 1: Audit Metrics — Both done.
+* Ours: latencyMs, tokensIn, tokensOut in response + logged to audit trail (getAuditLog/getAuditSummary)
+* Nyanclaw: latencyMs, tokensIn, tokensOut in response. No audit trail endpoint.
+* Verdict: Ours is more complete (persistent audit log with API endpoint).
+Feature 2: Source Tagging — Both done, identical approach.
+* Both use source field: atomic:psi-ema, atomic:forex, llm, shortcut, none
+* Nyanclaw adds atomic:seed-metric — wait, actually no, they don't have seed metric at all. We do.
+* Verdict: Equivalent. We have more source types (atomic:seed-metric).
+Feature 3: Input Guards (theta/z/r) — Both done.
+* Ours: Returns 'N/A' for missing theta, 'NEUTRAL (z N/A)'/'NEUTRAL (r N/A)' for z/r — no emoji.
+* Nyanclaw: Uses emoji in readings (🟡 NEUTRAL (z N/A), 🟢 Breathing, etc.) and uses emoji in nyan~ signature (🔥 nyan~).
+* Bug in nyanclaw: parseFloat(d.theta) || 0 means theta=0 becomes 0, which passes the NaN guard but gives 0 as a real value. If theta genuinely is NaN from bad API data, parseFloat(NaN) → NaN, NaN || 0 → 0, and the guard isNaN(0) is false — so the NaN guard is bypassed. The || 0 fallback defeats the purpose of the NaN guard.
+* Verdict: Nyanclaw has a logic bug — the || 0 coercion on line 177-179 silently converts NaN to 0, making the NaN guard on lines 167-169 unreachable for parseFloat failures. Our version handles this correctly.
+Feature 4: Error Chain Accumulation — Both done.
+* Ours: callWithFallback in llm-client.js accumulates errors array + throws joined string. Plus self-healing strike system (3 fails → demote, 5min cooldown).
+* Nyanclaw: callLLM accumulates errors array + throws joined string (line 81). No strike system.
+* Bug in nyanclaw: routeToProvider._ollamaFailures tracking (lines 92, 108) is a static property on the function — it never resets. Once Ollama fails twice, it's permanently skipped for the entire process lifetime. No cooldown mechanism.
+* Verdict: Ours is more robust (strike system with cooldown vs permanent skip).
+Feature 5: Memory Guard — Both claim done.
+* Ours: generateSummary() uses callWithFallback() with internal try/catch. Pipeline calls it fire-and-forget with .catch().
+* Nyanclaw: Pipeline wraps in try/catch (lines 406-417) — good. BUT memory-manager.js still has hardcoded Groq (line 29: GROQ_API_URL, line 179-186: direct Groq API call). This means:
+    * Memory summarization only works if GROQ_API_KEY is set
+    * If Groq is down, summarization fails even if other providers are available
+    * Violates the "no hardcoded provider" principle
+* Verdict: Nyanclaw has a critical bug — memory-manager bypasses the entire fallback chain and calls Groq directly. Our version correctly uses callWithFallback().
+Feature 6: Context Truncation — Both done, different approaches.
+* Ours: getContextBudget() scans the smallest contextWindow in the active chain, subtracts query + memory + system prompt overhead (300 tokens), truncates expert context only. Applied before building the system prompt.
+* Nyanclaw: getMinContextLimit() scans smallest window in chain, uses 80% budget (line 382), truncates the entire systemPrompt after it's already built (lines 380-387). Applied at the LLM call point.
+* Trade-off: Nyanclaw's approach is simpler (truncate whatever's too big), but truncating the system prompt means you might cut the mode instructions, memory prompt, or expert context randomly. Our approach surgically truncates only expert context, preserving critical instructions.
+* Verdict: Our approach is safer — it preserves system prompt structure and only trims the least critical part (expert context).
+Additional bugs found in nyanclaw:
+1. callWithFallback is a dead wrapper (line 270-272) — just calls callLLM. No separate fallback logic. Not harmful but unnecessary indirection.
+2. Claude API format wrong (line 188-189) — sends system as a message role, but Anthropic's Messages API uses a top-level system parameter, not a message. This will cause 400 errors on every Claude call.
+3. Double getContext call (line 329) — calls getContext(query) again inside the design intent block, wasting CPU. The result is also never used (assigned to expert but never referenced).
+4. No getActiveChain export — nyanclaw exports setDynamicChain but not a getter, so external modules can't inspect the chain state.
+5. PRIVILEGED_NUMBER still exported (line 459) — leaks the privileged caller ID through module exports. Security concern.
+6. No test coverage for hardening — nyanclaw's test file is 484 lines vs our 1028 lines. Their tests can't even run (missing dependencies).
+Summary table:
+#	Feature	Ours	Nyanclaw	Winner
+1	Audit metrics	Response + audit trail API	Response only	Ours
+2	Source tagging	5 source types	4 source types	Ours
+3	Input guards	Correct NaN handling	|| 0 defeats guard	Ours
+4	Error chain	Strike system + cooldown	Permanent Ollama skip	Ours
+5	Memory guard	Uses callWithFallback	Hardcoded Groq (bug)	Ours
+6	Context truncation	Surgical (expert only)	Blunt (whole prompt)	Ours
+-	Tests	146 passing	Won't run	Ours
+-	Claude API	Correct format	Wrong format (400s)	Ours
+Bottom line: Nyanclaw implemented the same 6 features but has 3 functional bugs (NaN guard bypass, hardcoded Groq in memory, Claude API format) and lacks our self-healing strike system. Nothing to absorb this round.
+}
+ from nyan AI:
+{
+All 3 hardenings are done and verified. Here's what was added:
+1. NaN input guards on deriveReading()
+* z and theta now have explicit isNaN() checks, matching the existing R guard. Previously NaN ?? 0 would silently pass NaN through (nullish coalescing doesn't catch NaN), potentially producing incorrect readings from bad API data.
+2. Source tagging
+* Every API response now carries a source field: atomic:psi-ema, atomic:seed-metric, atomic:forex, llm, shortcut, or none
+* This tells OpenClaw (and any consumer) exactly what answered the query -- deterministic calculation vs LLM synthesis
+3. Audit metrics
+* The /api/v1/nyan response now includes a structured audit object with confidence, verdict, passCount, and didSearchRetry
+* OpenClaw can now see whether the answer was verified, how many passes it took, and whether search augmentation was needed
+Example response now:
+{
+"source": "atomic:psi-ema",
+"badge": "verified",
+"audit": {
+"confidence": 95,
+"verdict": "BYPASS",
+"passCount": 1,
+"didSearchRetry": false
+}
+}
+
+This matches OpenClaw's hardening on their side -- both systems now speak the same source/audit language.
+} 
+https://github.com/johnjames-bit/nyanclaw.git
