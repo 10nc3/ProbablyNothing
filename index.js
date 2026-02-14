@@ -1,6 +1,9 @@
 /**
  * OpenClaw - Hybrid AI Workspace
- * Entry point: Express server + module health
+ * Entry point: env detect -> TUI banner -> Express server
+ *
+ * NOT Replit-powered. Runs on local Ollama or cloud LLM providers.
+ * Replit is dev environment only. Production = your own infra.
  */
 
 const express = require('express');
@@ -8,12 +11,17 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { callWithFallback, callLLM, PROVIDERS, DEFAULT_CHAIN } = require('./lib/llm-client');
-const { atomicQuery, getPsiEMA, callNyanAPI } = require('./lib/nyan-api');
+const { PROVIDERS, DEFAULT_CHAIN } = require('./lib/llm-client');
+const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
+const { runPipeline } = require('./lib/void-pipeline');
+const { detectEnvironment } = require('./lib/env-detect');
+const { printBanner } = require('./lib/startup-tui');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+let envReport = null;
 
 app.set('trust proxy', 1);
 app.use(helmet());
@@ -25,21 +33,60 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'alive',
     name: 'openclaw',
-    providers: Object.values(PROVIDERS),
-    chain: DEFAULT_CHAIN,
-    nyanApi: !!process.env.NYAN_API_TOKEN,
+    runtime: envReport?.runtime || 'unknown',
+    modes: ['prescribe', 'scribe', 'describe'],
+    chain: envReport?.chain || DEFAULT_CHAIN,
+    providers: Object.keys(envReport?.providers || {}).filter(k => envReport.providers[k].configured),
+    ollama: envReport?.ollama?.available || false,
+    nyanApi: envReport?.nyanApi || false,
     uptime: process.uptime()
   });
 });
 
+app.get('/api/env', (req, res) => {
+  if (!envReport) return res.status(503).json({ error: 'env detection not complete' });
+  res.json({
+    runtime: envReport.runtime,
+    ollama: {
+      available: envReport.ollama.available,
+      models: envReport.ollama.models,
+      url: envReport.ollama.url
+    },
+    providers: Object.fromEntries(
+      Object.entries(envReport.providers).map(([k, v]) => [k, { configured: v.configured }])
+    ),
+    chain: envReport.chain,
+    nyanApi: envReport.nyanApi,
+    ready: envReport.ready,
+    note: envReport.runtime === 'replit-dev'
+      ? 'Running in Replit dev environment. For production, deploy with Ollama locally or cloud API keys.'
+      : null
+  });
+});
+
 app.post('/api/chat', async (req, res) => {
-  const { message, provider, system, model, temperature, maxTokens } = req.body;
+  const { message, provider, model, temperature, maxTokens, callerId } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
+
+  const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
+
   try {
-    const result = await callWithFallback(message, {
-      provider, system, model, temperature, maxTokens
+    const result = await runPipeline({
+      query: message,
+      sessionId,
+      callerId: callerId || null,
+      chain: envReport?.chain?.length ? envReport.chain : undefined,
+      options: { provider, model, temperature, maxTokens }
     });
-    res.json({ response: result });
+
+    res.json({
+      response: result.response,
+      mode: result.mode,
+      provider: result.provider,
+      shortcut: result.shortcut || null,
+      intents: result.intents,
+      memory: result.memory || null
+    });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
@@ -83,7 +130,8 @@ app.get('/api/modules', (req, res) => {
     'llm-client', 'nyan-api', 'void-pipeline', 'preflight-router',
     'context-router', 'data-package', 'memory-manager', 'model-fallback',
     'mode-registry', 'code-context', 'stock-fetcher', 'financial-physics',
-    'psi-ema', 'forex-fetcher', 'legal-analysis', 'web-search'
+    'psi-ema', 'forex-fetcher', 'legal-analysis', 'web-search',
+    'env-detect', 'startup-tui'
   ];
   const status = {};
   for (const m of modules) {
@@ -97,6 +145,23 @@ app.get('/api/modules', (req, res) => {
   res.json(status);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[openclaw] listening on 0.0.0.0:${PORT}`);
+async function boot() {
+  envReport = await detectEnvironment();
+
+  printBanner(envReport, PORT);
+
+  if (envReport.chain.length > 0) {
+    console.log(`[openclaw] dynamic chain: ${envReport.chain.join(' -> ')}`);
+  } else {
+    console.log('[openclaw] WARNING: no LLM providers available — shortcuts only');
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[openclaw] listening on 0.0.0.0:${PORT}`);
+  });
+}
+
+boot().catch(e => {
+  console.error(`[openclaw] boot failed: ${e.message}`);
+  process.exit(1);
 });
