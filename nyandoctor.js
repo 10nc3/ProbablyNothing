@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * OpenClaw Doctor — diagnose and auto-fix common issues
+ * NyanDoctor — diagnose and auto-fix common issues
  *
  * Usage:
- *   node doctor.js          # diagnose only (safe, read-only)
- *   node doctor.js --fix    # diagnose + auto-repair what we can
+ *   node nyandoctor.js          # diagnose only (safe, read-only)
+ *   node nyandoctor.js --fix    # diagnose + auto-repair what we can
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
@@ -68,7 +68,7 @@ function checkPort(port) {
 async function run() {
   console.log('');
   console.log(`${C.bold}${C.cyan}  ╔══════════════════════════════════╗${C.reset}`);
-  console.log(`${C.bold}${C.cyan}  ║   ${C.white}OPENCLAW DOCTOR${C.cyan}  ${C.dim}${FIX ? '--fix' : 'diagnose'}${C.cyan}    ║${C.reset}`);
+  console.log(`${C.bold}${C.cyan}  ║   ${C.white}NYANDOCTOR${C.cyan}  ${C.dim}${FIX ? '--fix' : 'diagnose'}${C.cyan}    ║${C.reset}`);
   console.log(`${C.bold}${C.cyan}  ╚══════════════════════════════════╝${C.reset}`);
   console.log('');
 
@@ -265,7 +265,7 @@ async function run() {
     const fixable = issues.filter(i => i.fixable);
     if (fixable.length > 0) {
       console.log('');
-      console.log(`  ${C.cyan}Run ${C.bold}node doctor.js --fix${C.reset}${C.cyan} to auto-repair ${fixable.length} issue(s)${C.reset}`);
+      console.log(`  ${C.cyan}Run ${C.bold}node nyandoctor.js --fix${C.reset}${C.cyan} to auto-repair ${fixable.length} issue(s)${C.reset}`);
     }
   }
 

@@ -106,8 +106,8 @@ Cloud runs first. Ollama holds the ground when the sky falls.
 ### Doctor (recommended)
 
 ```bash
-node doctor.js          # diagnose — checks everything, read-only
-node doctor.js --fix    # diagnose + auto-repair what it can
+node nyandoctor.js          # diagnose — checks everything, read-only
+node nyandoctor.js --fix    # diagnose + auto-repair what it can
 ```
 
 Checks: dependencies, .env, privilege config, cloud API keys, Ollama, nyan API (live ping), port 5000, core files, and runs all tests. Color-coded output.
