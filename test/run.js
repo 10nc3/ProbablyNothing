@@ -268,6 +268,111 @@ test('handles alternate psiEma.daily format', () => {
   assert.ok(result.includes('FALSE POSITIVE'));
 });
 
+test('handles results-keyed format (single ticker)', () => {
+  const data = {
+    results: {
+      AAPL: {
+        currentPrice: 190,
+        shortName: 'Apple Inc.',
+        psi_ema_daily: { theta: 12, z: 1.8, r: 2.1 }
+      }
+    }
+  };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('AAPL'));
+  assert.ok(result.includes('Apple Inc.'));
+  assert.ok(result.includes('STRONG BULL'));
+});
+
+test('handles results-keyed format (multi ticker)', () => {
+  const data = {
+    results: {
+      AAPL: {
+        currentPrice: 190,
+        psi_ema_daily: { theta: 12, z: 1.8, r: 2.1 }
+      },
+      TSLA: {
+        currentPrice: 250,
+        psi_ema_daily: { theta: -4, z: 0.5, r: 2.0 }
+      }
+    }
+  };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('AAPL'));
+  assert.ok(result.includes('TSLA'));
+  assert.ok(result.includes('STRONG BULL'));
+  assert.ok(result.includes('FALSE POSITIVE'));
+});
+
+test('handles empty results object', () => {
+  const data = { results: {} };
+  const result = formatPsiEMA(data);
+  assert.ok(result.includes('no data'));
+});
+
+// ═══════════════════════════════════════════
+// getPsiEMA endpoint
+// ═══════════════════════════════════════════
+const { getPsiEMA: getPsiEMAFn } = require('../lib/nyan-api');
+
+console.log('\n\x1b[1m── getPsiEMA endpoint ──\x1b[0m\n');
+
+test('getPsiEMA hits /psi-ema endpoint with single ticker', async () => {
+  const origPost = axios.post;
+  let capturedUrl = null;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedUrl = url;
+    capturedPayload = payload;
+    return { data: { success: true, results: { AAPL: { psi_ema_daily: { theta: 5, z: 1.2, r: 1.9 } } } } };
+  };
+  try {
+    const result = await getPsiEMAFn('AAPL');
+    assert.ok(capturedUrl.includes('/psi-ema'), 'should hit /psi-ema endpoint');
+    assert.strictEqual(capturedPayload.ticker, 'AAPL');
+    assert.ok(!capturedPayload.tickers, 'single ticker should not send tickers array');
+    assert.ok(result.results.AAPL, 'should have AAPL in results');
+    assert.strictEqual(result.success, true);
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+test('getPsiEMA hits /psi-ema endpoint with array of tickers', async () => {
+  const origPost = axios.post;
+  let capturedPayload = null;
+  axios.post = async (url, payload) => {
+    capturedPayload = payload;
+    return { data: { success: true, results: { AAPL: {}, TSLA: {} } } };
+  };
+  try {
+    const result = await getPsiEMAFn(['AAPL', 'TSLA']);
+    assert.ok(Array.isArray(capturedPayload.tickers), 'array input should send tickers');
+    assert.strictEqual(capturedPayload.tickers.length, 2);
+    assert.ok(result.tickers.includes('AAPL'));
+    assert.ok(result.tickers.includes('TSLA'));
+  } finally {
+    axios.post = origPost;
+  }
+});
+
+test('getPsiEMA falls back to atomic on endpoint failure', async () => {
+  const origPost = axios.post;
+  let callCount = 0;
+  axios.post = async (url, payload) => {
+    callCount++;
+    if (callCount === 1) throw new Error('endpoint down');
+    return { data: { success: true, response: 'fallback worked', psiEma: { daily: {} } } };
+  };
+  try {
+    const result = await getPsiEMAFn('AAPL');
+    assert.strictEqual(callCount, 2, 'should make 2 calls (endpoint + fallback)');
+    assert.strictEqual(result.success, true);
+  } finally {
+    axios.post = origPost;
+  }
+});
+
 // ═══════════════════════════════════════════
 // env-detect.js
 // ═══════════════════════════════════════════
