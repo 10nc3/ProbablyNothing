@@ -80,7 +80,7 @@ app.get('/api/env', async (req, res) => {
   if (req.query.reload === 'true') {
     try {
       const canary = req.query.canary === 'true';
-      const freshReport = await detectEnvironment({ canary });
+      const freshReport = await detectEnvironment({ canary, force: true });
       envReport = freshReport;
       if (freshReport.chain.length > 0) {
         setDynamicChain(freshReport.chain);
@@ -240,9 +240,9 @@ app.get('/api/audit', trustGate, (req, res) => {
 app.get('/api/modules', (req, res) => {
   const modules = [
     'llm-client', 'nyan-api', 'void-pipeline', 'preflight-router',
-    'context-router', 'data-package', 'memory-manager', 'model-fallback',
-    'mode-registry', 'code-context', 'stock-fetcher', 'financial-physics',
-    'psi-ema', 'forex-fetcher', 'legal-analysis', 'web-search',
+    'intent-detector', 'data-package', 'memory-manager', 'model-fallback',
+    'mode-registry', 'stock-fetcher', 'financial-physics',
+    'psi-ema', 'legal-analysis', 'web-search',
     'env-detect', 'startup-tui'
   ];
   const status = {};
