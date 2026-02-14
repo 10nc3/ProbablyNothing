@@ -454,6 +454,8 @@ const {
   detectSeedMetricIntent,
   getSeedMetricProxy,
   formatSeedMetric,
+  parseNyanSeedMetricResponse,
+  parseSearchSnippets,
   PHI: SM_PHI
 } = require('../prompts/seed-metric');
 
@@ -555,6 +557,71 @@ test('formatSeedMetric formats result correctly', () => {
 
 test('formatSeedMetric handles null', () => {
   assert.ok(formatSeedMetric(null).includes('no data'));
+});
+
+// ── seed-metric parsers ──
+
+test('parseNyanSeedMetricResponse parses LAND:X INCOME:Y format', () => {
+  const r = parseNyanSeedMetricResponse('LAND:13,400 INCOME:34,944 [seed-metric]');
+  assert.strictEqual(r.landPricePerSqm, 13400);
+  assert.strictEqual(r.medianIncome, 34944);
+});
+
+test('parseNyanSeedMetricResponse parses no-comma format', () => {
+  const r = parseNyanSeedMetricResponse('LAND:4348 INCOME:44491 [23.5 years]');
+  assert.strictEqual(r.landPricePerSqm, 4348);
+  assert.strictEqual(r.medianIncome, 44491);
+});
+
+test('parseNyanSeedMetricResponse parses verbose text fallback', () => {
+  const r = parseNyanSeedMetricResponse('Land price per sqm: 5,000 USD, Median income: 37,000 USD');
+  assert.strictEqual(r.landPricePerSqm, 5000);
+  assert.strictEqual(r.medianIncome, 37000);
+});
+
+test('parseNyanSeedMetricResponse returns null on garbage', () => {
+  assert.strictEqual(parseNyanSeedMetricResponse('hello world'), null);
+  assert.strictEqual(parseNyanSeedMetricResponse(null), null);
+  assert.strictEqual(parseNyanSeedMetricResponse(''), null);
+});
+
+test('parseSearchSnippets extracts from search results', () => {
+  const results = [
+    { snippet: 'The average land price is $2,500 per sqm in the area.' },
+    { snippet: 'The median household income is $45,000 per year.' }
+  ];
+  const r = parseSearchSnippets(results);
+  assert.strictEqual(r.landPricePerSqm, 2500);
+  assert.strictEqual(r.medianIncome, 45000);
+});
+
+test('parseSearchSnippets returns null on empty', () => {
+  assert.strictEqual(parseSearchSnippets([]), null);
+  assert.strictEqual(parseSearchSnippets(null), null);
+});
+
+// ── pipeline seed-metric integration ──
+
+const { detectIntents: pipelineDetectIntents, extractCity } = require('../lib/void-pipeline');
+
+test('extractCity extracts city from query', () => {
+  assert.strictEqual(extractCity('housing affordability in Seoul'), 'Seoul');
+  assert.strictEqual(extractCity('seed metric for Tokyo'), 'Tokyo');
+  assert.strictEqual(extractCity('demographic collapse of Hong Kong'), 'Hong Kong');
+  assert.strictEqual(extractCity('hello world'), null);
+});
+
+test('detectIntents finds seed-metric intent', () => {
+  const intents = pipelineDetectIntents('housing affordability in Seoul');
+  const sm = intents.find(i => i.type === 'seed-metric');
+  assert.ok(sm, 'should detect seed-metric intent');
+  assert.strictEqual(sm.city, 'Seoul');
+});
+
+test('detectIntents does not false-positive seed-metric', () => {
+  const intents = pipelineDetectIntents('what is 2+2');
+  const sm = intents.find(i => i.type === 'seed-metric');
+  assert.ok(!sm, 'should not detect seed-metric for unrelated query');
 });
 
 // ═══════════════════════════════════════════
