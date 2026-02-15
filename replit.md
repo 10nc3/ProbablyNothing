@@ -32,6 +32,7 @@ Key architectural features include:
 -   **API Integrations**: nyanbook.io API
 -   **Input Channels**: Discord gateway (event-driven via discord.js, optional — requires DISCORD_BOT_TOKEN)
 -   **Libraries**: axios, cors, express, express-rate-limit, helmet, discord.js
+-   **Passive Health**: Provider latency/success tracked from real requests (no synthetic pings). `/health` exposes per-provider stats.
 
 ## External Tools (outside workspace)
 
@@ -48,6 +49,5 @@ Three-generation memory: past anchor, present state, future direction.
 - **Nyanclaw anchor**: `8401ee3` (main) — last verified synthesis. PII scrubbed from git (phone placeholders). All prior clones purged.
 - **Sync tool**: `bash /home/runner/.openclaw-tools/sync-nyanclaw.sh` — lives outside workspace to avoid polluting OpenClaw git. Keeps exactly one shallow clone at `/tmp/nyanclaw-latest`, auto-purges stale copies, updates this anchor.
 - **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries).
-- **Future**: Hook system (disk JSONL logging, WhatsApp CC) exists in nyanclaw but not absorbed — deployment-specific to their infra.
 - **Discord gateway**: `lib/discord-gateway.js` — event-driven bot (MESSAGE_CREATE), maps channels→sessionIds and users→callerIds for privilege gating, chunks responses at 2000 chars. Optional satellite: no DISCORD_BOT_TOKEN = no start. Health status exposed at `/health` endpoint.
-- **Boundary note**: vegapunk.js and its 4 Discord bots (Hermes, Thoth, Idris, Horus) belong to nyanbook.io's ledger backend — NOT OpenClaw. OpenClaw connects to nyanbook via Nyan API only. Do not absorb or reimplement Discord/WhatsApp bot infrastructure here. The whatsapp-cc.js hook in `lib/hooks/` is a nyanclaw deployment artifact kept for reference only.
+- **Boundary note**: vegapunk.js and its 4 Discord bots (Hermes, Thoth, Idris, Horus) belong to nyanbook.io's ledger backend — NOT OpenClaw. OpenClaw connects to nyanbook via Nyan API only. Do not absorb or reimplement bot infrastructure here.

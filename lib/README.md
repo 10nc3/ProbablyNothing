@@ -13,9 +13,8 @@ Modular satellites orbiting a central kernel.
 | File | Purpose |
 |------|---------|
 | `void-pipeline.js` | O(n) single-pass orchestrator — DETECT, GATE, CONTEXT, CALL, SIGN |
-| `context-router.js` | MoE-inspired expert routing — loads relevant identity/philosophy files |
-| `llm-client.js` | Multi-provider LLM client with dynamic fallback chain |
-| `index.js` | Unified barrel export |
+| `intent-detector.js` | MoE-inspired expert routing — loads relevant identity/philosophy files |
+| `llm-client.js` | Multi-provider LLM client with dynamic fallback chain + passive health tracking |
 
 ---
 
@@ -27,13 +26,12 @@ Modular satellites orbiting a central kernel.
 | `psi-ema.js` | psi-ema, theta, z-score | Financial analysis + documentation |
 | `financial-physics.js` | fp, physics, momentum | Financial physics calculations |
 | `stock-fetcher.js` | stock, price, CPO | Stock/commodity data |
-| `forex-fetcher.js` | forex, currency | Forex data |
 | `legal-analysis.js` | legal, contract | Legal analysis tools |
 | `web-search.js` | search, web | Web search integration |
 | `data-package.js` | data, package | Data packaging |
-| `code-context.js` | code, context | Code analysis |
 | `memory-manager.js` | remember, memory | Session memory (shared across modes/providers) |
 | `mode-registry.js` | mode detection | prescribe/scribe/describe routing |
+| `preflight-router.js` | all queries | Stage 0+1 unified pre-processing |
 
 ---
 
@@ -49,18 +47,8 @@ Modular satellites orbiting a central kernel.
 
 | File | Purpose |
 |------|---------|
-| `env-detect.js` | Startup probe: Ollama, API keys, runtime detection, dynamic chain building |
+| `env-detect.js` | Startup probe: Ollama HTTP check, API key detection, runtime detection, dynamic chain building (zero token cost) |
 | `startup-tui.js` | Colored terminal banner with provider status and setup guidance |
-| `preflight-router.js` | Request preflight routing |
-| `model-fallback.js` | Legacy CLI model fallback tool |
-
----
-
-## Hooks (nyanclaw artifacts — not core OpenClaw)
-
-| File | Purpose |
-|------|---------|
-| `hooks/whatsapp-cc.js` | WhatsApp CC via Twilio (nyanclaw deployment artifact, kept for reference only) |
 
 ---
 
@@ -77,15 +65,15 @@ Modular satellites orbiting a central kernel.
 
 1. Create `lib/your-satellite.js`
 2. Export your function
-3. Add trigger keywords to `context-router.js` TRIGGERS
-4. Add files to `context-router.js` EXPERTS if needed
+3. Add trigger keywords to `intent-detector.js` TRIGGERS
+4. Add files to `intent-detector.js` EXPERTS if needed
 5. Kernel handles the rest — pipeline routes automatically
 
 ---
 
 ## Dynamic Fallback Chain
 
-Built at startup by `env-detect.js`. Priority: **Cloud first** (fast, smart), then **Ollama last** as local substrate (safety net when cloud fails).
+Built at startup by `env-detect.js`. Priority: **Cloud first** (fast, smart), then **Ollama last** as local substrate (safety net when cloud fails). Provider health tracked passively from real requests — no synthetic pings.
 
 ```
 minimax -> groq -> claude -> openai -> ollama
