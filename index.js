@@ -13,7 +13,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain } = require('./lib/llm-client');
+const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain, getProviderStats, getStrikeStatus } = require('./lib/llm-client');
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
 const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeline');
@@ -71,6 +71,8 @@ app.get('/health', (req, res) => {
     modes: ['prescribe', 'scribe', 'describe'],
     chain: envReport?.chain || DEFAULT_CHAIN,
     providers: Object.keys(envReport?.providers || {}).filter(k => envReport.providers[k].configured),
+    providerHealth: getProviderStats(),
+    strikes: getStrikeStatus(),
     ollama: envReport?.ollama?.available || false,
     nyanApi: envReport?.nyanApi || false,
     discord: getDiscordStatus(),
@@ -81,12 +83,11 @@ app.get('/health', (req, res) => {
 app.get('/api/env', async (req, res) => {
   if (req.query.reload === 'true') {
     try {
-      const canary = req.query.canary === 'true';
-      const freshReport = await detectEnvironment({ canary, force: true });
+      const freshReport = await detectEnvironment({ force: true });
       envReport = freshReport;
       if (freshReport.chain.length > 0) {
         setDynamicChain(freshReport.chain);
-        console.log(`[openclaw] chain hot-reloaded${canary ? ' (canary)' : ''}: ${freshReport.chain.join(' -> ')}`);
+        console.log(`[openclaw] chain hot-reloaded: ${freshReport.chain.join(' -> ')}`);
       }
     } catch (e) {
       console.error(`[openclaw] chain reload failed: ${e.message}`);
@@ -104,6 +105,8 @@ app.get('/api/env', async (req, res) => {
       Object.entries(envReport.providers).map(([k, v]) => [k, { configured: v.configured }])
     ),
     chain: envReport.chain,
+    providerHealth: getProviderStats(),
+    strikes: getStrikeStatus(),
     nyanApi: envReport.nyanApi,
     ready: envReport.ready,
     reloaded: req.query.reload === 'true' ? true : undefined,
