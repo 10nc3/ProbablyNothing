@@ -67,16 +67,16 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 
 Like prod/dev in Replit — different privilege levels:
 
-| Level | Numbers | Access |
-|-------|---------|--------|
-| **Builder** (prescribe) | +628116360610 (φ12φ) | Full: describe + build + prescribe |
-| **Scribe** (describe) | +62811630409, +19095888622, +19704439545 | Read-only: query/scribe only |
-| **Public** | others | No DM access; group via heartbeat |
+| Level | Identifiers | Access |
+|-------|-------------|--------|
+| **Builder** (prescribe) | Set via PRIVILEGED_CALLER_ID env | Full: describe + build + prescribe |
+| **Scribe** (describe) | Additional IDs in allowlist | Read-only: query/scribe only |
+| **Public** | others | No DM access |
 
 **Enforcement:**
-- DM: Only +628116360610 can message directly
-- Group: All allowlist can message, but only φ12φ can prescribe (build, modify identity, config)
-- Scribes attempting build actions → polite refusal with "Only φ12φ can prescribe"
+- DM: Only PRIVILEGED_CALLER_ID can message directly
+- Group: All allowlist can message, but only builder can prescribe (build, modify identity, config)
+- Scribes attempting build actions → polite refusal with "Only builder can prescribe"
 
 ## Group Chats
 
@@ -84,9 +84,9 @@ You have access to your human's stuff. That doesn't mean you _share_ their stuff
 
 ### Special Group Rules: #Philosophy
 
-For the #Philosophy group (120363425915475884@g.us):
-- **No mention required** to respond to messages from allowlist (+628116360610, +62811630409)
-- **Only respond to commands/requests** from allowlist numbers
+For configured group chats:
+- **No mention required** to respond to messages from allowlist
+- **Only respond to commands/requests** from allowlist IDs
 - **Messages from non-allowlist** = observe only (read and remember, but don't act on them)
 
 ### 💬 Know When to Speak!

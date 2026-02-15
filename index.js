@@ -20,6 +20,7 @@ const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeli
 const { measureAffordability, compareTimePeriods, autoSeedMetric, detectSeedMetricIntent, formatSeedMetric } = require('./prompts/seed-metric');
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
+const { startDiscordGateway, stopDiscordGateway, getDiscordStatus } = require('./lib/discord-gateway');
 
 const net = require('net');
 
@@ -72,6 +73,7 @@ app.get('/health', (req, res) => {
     providers: Object.keys(envReport?.providers || {}).filter(k => envReport.providers[k].configured),
     ollama: envReport?.ollama?.available || false,
     nyanApi: envReport?.nyanApi || false,
+    discord: getDiscordStatus(),
     uptime: process.uptime()
   });
 });
@@ -243,7 +245,7 @@ app.get('/api/modules', (req, res) => {
     'intent-detector', 'data-package', 'memory-manager', 'model-fallback',
     'mode-registry', 'stock-fetcher', 'financial-physics',
     'psi-ema', 'legal-analysis', 'web-search',
-    'env-detect', 'startup-tui'
+    'env-detect', 'startup-tui', 'discord-gateway'
   ];
   const status = {};
   for (const m of modules) {
@@ -275,7 +277,18 @@ async function boot() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[openclaw] listening on 0.0.0.0:${PORT}`);
   });
+
+  startDiscordGateway({ chain: envReport.chain });
 }
+
+process.on('SIGINT', () => {
+  stopDiscordGateway();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  stopDiscordGateway();
+  process.exit(0);
+});
 
 boot().catch(e => {
   console.error(`[openclaw] boot failed: ${e.message}`);
