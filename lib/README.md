@@ -31,7 +31,6 @@ Modular satellites orbiting a central kernel.
 | `data-package.js` | data, package | Data packaging |
 | `memory-manager.js` | remember, memory | Session memory (shared across modes/providers) |
 | `mode-registry.js` | mode detection | prescribe/scribe/describe routing |
-| `preflight-router.js` | all queries | Stage 0+1 unified pre-processing |
 
 ---
 

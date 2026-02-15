@@ -242,7 +242,7 @@ app.get('/api/audit', trustGate, (req, res) => {
 
 app.get('/api/modules', (req, res) => {
   const modules = [
-    'llm-client', 'nyan-api', 'void-pipeline', 'preflight-router',
+    'llm-client', 'nyan-api', 'void-pipeline',
     'intent-detector', 'data-package', 'memory-manager',
     'mode-registry', 'stock-fetcher', 'financial-physics',
     'psi-ema', 'legal-analysis', 'web-search',
