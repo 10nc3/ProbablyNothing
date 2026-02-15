@@ -11,7 +11,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { PROVIDERS, DEFAULT_CHAIN, setDynamicChain, getProviderStats, getStrikeStatus } = require('./lib/llm-client');
+const { PROVIDERS, setDynamicChain, getActiveChain, getProviderStats, getStrikeStatus } = require('./lib/llm-client');
 const { atomicQuery, getPsiEMA } = require('./lib/nyan-api');
 const { webSearch } = require('./lib/web-search');
 const { runPipeline, getAuditLog, getAuditSummary } = require('./lib/void-pipeline');
@@ -67,7 +67,7 @@ app.get('/health', (req, res) => {
     name: 'openclaw',
     runtime: envReport?.runtime || 'unknown',
     modes: ['prescribe', 'scribe', 'describe'],
-    chain: envReport?.chain || DEFAULT_CHAIN,
+    chain: envReport?.chain || getActiveChain(),
     providers: Object.keys(envReport?.providers || {}).filter(k => envReport.providers[k].configured),
     providerHealth: getProviderStats(),
     strikes: getStrikeStatus(),
