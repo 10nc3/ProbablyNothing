@@ -64,9 +64,19 @@ ollama pull qwen2.5-coder:7b
 
 Ollama is the substrate — always last in the chain, holding the ground when cloud fails. No API costs, runs locally, never disappears.
 
-### 5. First Interaction
+### 5. Discord Gateway (Optional)
 
-Send a message via `/api/chat`. The system will:
+```bash
+export DISCORD_BOT_TOKEN=your_bot_token
+```
+
+If set, the Discord gateway starts automatically on boot. It listens for messages (event-driven, not polling), maps Discord channels to session IDs and user IDs to caller IDs for privilege gating, and chunks responses at 2000 characters.
+
+The `/health` endpoint reports Discord status. No token = gateway skipped silently.
+
+### 6. First Interaction
+
+Send a message via `/api/chat` or Discord. The system will:
 1. Detect mode (prescribe/scribe/describe)
 2. Check privilege gating (prescribe requires authorized caller)
 3. Inject relevant expert context (MoE routing)

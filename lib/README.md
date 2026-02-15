@@ -37,6 +37,14 @@ Modular satellites orbiting a central kernel.
 
 ---
 
+## Input Channels
+
+| File | Trigger | Purpose |
+|------|---------|---------|
+| `discord-gateway.js` | DISCORD_BOT_TOKEN set | Event-driven Discord bot — maps channels→sessions, users→callerIds, chunks at 2000 chars |
+
+---
+
 ## Infrastructure
 
 | File | Purpose |
