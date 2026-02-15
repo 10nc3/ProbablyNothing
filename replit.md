@@ -42,12 +42,27 @@ All dev/diagnostic utilities live at `/home/runner/.openclaw-tools/` — outside
 - `nyandoctor.js` — diagnose/auto-fix (deps, env, APIs, tests)
 - `setup.js` — interactive first-hatch setup (prompts for keys, writes .env, boots server)
 
+## Two-Repo Model
+
+OpenClaw exists across two repos with different purposes — they do NOT need to be in perfect sync.
+
+| | Replit (ProbablyNothing) | Mac Mini (nyanclaw) |
+|---|---|---|
+| **Repo** | `github.com/10nc3/ProbablyNothing` | `github.com/johnjames-bit/nyanclaw` |
+| **Purpose** | Dev env / public blueprint | Personal prod env |
+| **Audience** | Anyone — open to adopt, fork, or synthesize better | Owner only — personal infra |
+| **Provider stance** | Generalized — no assumption about which cloud provider is primary. Users bring their own keys or run Ollama-only | Optimized for MiniMax (primary) + Ollama Qwen (substrate), latency-tuned |
+| **Design goal** | Clean, provider-agnostic, well-documented open blueprint | Lean, fast, personal debugging tools |
+| **Sync policy** | Pull specific hardening/features from nyanclaw when they generalize well. Don't copy MiniMax-specific optimizations. | Source of truth for owner's prod. May have personal config, cron jobs, tools that don't belong in the public repo. |
+
+**Key principle**: Replit version = "here's how it works, make it yours." Nyanclaw = "here's how I run mine."
+
 ## Synthesis Memory (0+φ⁰+φ¹=φ²)
 
 Three-generation memory: past anchor, present state, future direction.
 
 - **Nyanclaw anchor**: `8401ee3` (main) — last verified synthesis. PII scrubbed from git (phone placeholders). All prior clones purged.
 - **Sync tool**: `bash /home/runner/.openclaw-tools/sync-nyanclaw.sh` — lives outside workspace to avoid polluting OpenClaw git. Keeps exactly one shallow clone at `/tmp/nyanclaw-latest`, auto-purges stale copies, updates this anchor.
-- **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries).
+- **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries). Strike system restored (3-strike demotion, 5-min cooldown, passive health stats).
 - **Discord gateway**: `lib/discord-gateway.js` — event-driven bot (MESSAGE_CREATE), maps channels→sessionIds and users→callerIds for privilege gating, chunks responses at 2000 chars. Optional satellite: no DISCORD_BOT_TOKEN = no start. Health status exposed at `/health` endpoint.
 - **Boundary note**: vegapunk.js and its 4 Discord bots (Hermes, Thoth, Idris, Horus) belong to nyanbook.io's ledger backend — NOT OpenClaw. OpenClaw connects to nyanbook via Nyan API only. Do not absorb or reimplement bot infrastructure here.
