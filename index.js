@@ -6,8 +6,6 @@
  * Replit is dev environment only. Production = your own infra.
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -245,7 +243,7 @@ app.get('/api/audit', trustGate, (req, res) => {
 app.get('/api/modules', (req, res) => {
   const modules = [
     'llm-client', 'nyan-api', 'void-pipeline', 'preflight-router',
-    'intent-detector', 'data-package', 'memory-manager', 'model-fallback',
+    'intent-detector', 'data-package', 'memory-manager',
     'mode-registry', 'stock-fetcher', 'financial-physics',
     'psi-ema', 'legal-analysis', 'web-search',
     'env-detect', 'startup-tui', 'discord-gateway'
