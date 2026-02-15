@@ -124,9 +124,9 @@ test('parses comma-separated', () => {
 
 test('normalizes hyphens and spaces', () => {
   const orig = process.env.PRIVILEGED_CALLER_ID;
-  process.env.PRIVILEGED_CALLER_ID = '+62-811-636-0610';
+  process.env.PRIVILEGED_CALLER_ID = '+1-234-567-8901';
   const ids = getPrivilegedIds();
-  assert.strictEqual(ids[0], '+628116360610');
+  assert.strictEqual(ids[0], '+12345678901');
   if (orig !== undefined) process.env.PRIVILEGED_CALLER_ID = orig;
   else delete process.env.PRIVILEGED_CALLER_ID;
 });
@@ -1016,8 +1016,8 @@ test('strips email addresses', () => {
 });
 
 test('strips phone numbers', () => {
-  const result = stripPII('call +628116360610 please');
-  assert.ok(!result.includes('628116360610'), 'phone number should be stripped');
+  const result = stripPII('call +12345678901 please');
+  assert.ok(!result.includes('12345678901'), 'phone number should be stripped');
   assert.ok(result.includes('[phone]'), 'should contain [phone] label');
 });
 

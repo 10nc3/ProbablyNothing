@@ -37,11 +37,11 @@ After first hatch, just `node index.js` (or `npm start`) to boot — `.env` is l
 | `PRIVILEGED_CALLER_ID` | Comma-separated IDs allowed to use prescribe mode. Phone, email, username — any format. No value = prescribe locked. |
 
 ```bash
-# Single user
-export PRIVILEGED_CALLER_ID=+628116360610
+# Single user (phone, email, Discord ID — any format)
+export PRIVILEGED_CALLER_ID=+1234567890
 
 # Multiple users
-export PRIVILEGED_CALLER_ID=+628116360610,admin@example.com,devops-bot
+export PRIVILEGED_CALLER_ID=+1234567890,admin@example.com,discord:123456789
 ```
 
 #### Cloud LLM Providers (at least one recommended)
