@@ -64,14 +64,7 @@ ollama pull qwen2.5-coder:7b
 
 Ollama is the substrate — always last in the chain, holding the ground when cloud fails. No API costs, runs locally, never disappears.
 
-### 5. Connect Channels
-
-```bash
-# WhatsApp (via Twilio)
-# Configure in lib/hooks/whatsapp-cc.js
-```
-
-### 6. First Interaction
+### 5. First Interaction
 
 Send a message via `/api/chat`. The system will:
 1. Detect mode (prescribe/scribe/describe)

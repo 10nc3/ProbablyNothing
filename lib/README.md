@@ -2,7 +2,7 @@
 
 ## Philosophy: Kernel + Satellites
 
-Inspired by **vegapunk model** — modular satellites orbiting a central kernel.
+Modular satellites orbiting a central kernel.
 
 **Goal:** Minimize token bleed. Only load what's needed per query.
 
@@ -48,11 +48,11 @@ Inspired by **vegapunk model** — modular satellites orbiting a central kernel.
 
 ---
 
-## Hooks
+## Hooks (nyanclaw artifacts — not core OpenClaw)
 
 | File | Purpose |
 |------|---------|
-| `hooks/whatsapp-cc.js` | WhatsApp integration via Twilio |
+| `hooks/whatsapp-cc.js` | WhatsApp CC via Twilio (nyanclaw deployment artifact, kept for reference only) |
 
 ---
 

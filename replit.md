@@ -29,7 +29,7 @@ Key architectural features include:
 ## External Dependencies
 
 -   **AI Providers**: MiniMax, Groq, Claude (Anthropic), OpenAI, Ollama (local)
--   **API Integrations**: nyanbook.io API, Twilio (for WhatsApp integration)
+-   **API Integrations**: nyanbook.io API
 -   **Libraries**: axios, cors, express, express-rate-limit, helmet
 
 ## External Tools (outside workspace)
@@ -47,4 +47,5 @@ Three-generation memory: past anchor, present state, future direction.
 - **Nyanclaw anchor**: `8401ee3` (main) — last verified synthesis. PII scrubbed from git (phone placeholders). All prior clones purged.
 - **Sync tool**: `bash /home/runner/.openclaw-tools/sync-nyanclaw.sh` — lives outside workspace to avoid polluting OpenClaw git. Keeps exactly one shallow clone at `/tmp/nyanclaw-latest`, auto-purges stale copies, updates this anchor.
 - **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries).
-- **Future**: Hook system (disk JSONL logging, WhatsApp CC) exists in nyanclaw but not absorbed — deployment-specific to their infra. Discord native support lives in OpenClaw's vegapunk.js (multi-bot webhook architecture: Hermes, Thoth, Idris, Horus) — absorb from there when ready, don't reimplement.
+- **Future**: Hook system (disk JSONL logging, WhatsApp CC) exists in nyanclaw but not absorbed — deployment-specific to their infra.
+- **Boundary note**: vegapunk.js and its 4 Discord bots (Hermes, Thoth, Idris, Horus) belong to nyanbook.io's ledger backend — NOT OpenClaw. OpenClaw connects to nyanbook via Nyan API only. Do not absorb or reimplement Discord/WhatsApp bot infrastructure here. The whatsapp-cc.js hook in `lib/hooks/` is a nyanclaw deployment artifact kept for reference only.
