@@ -35,7 +35,7 @@ Key architectural features include:
 
 -   **AI Providers**: MiniMax, Groq, Claude (Anthropic), OpenAI, Ollama (local)
 -   **API Integrations**: nyanbook.io API
--   **Input Channels**: Discord gateway (event-driven via discord.js, optional — requires DISCORD_BOT_TOKEN)
+-   **Input Channels**: Discord gateway (event-driven via discord.js, optional — requires DISCORD_BOT_TOKEN). Supports Components v2: buttons, selects, modals with one-time interaction IDs and TTL-based registry.
 -   **Libraries**: axios, cors, express, express-rate-limit, helmet, discord.js
 -   **Passive Health**: Provider latency/success tracked from real requests (no synthetic pings). `/health` exposes per-provider stats.
 
@@ -68,6 +68,8 @@ Three-generation memory: past anchor, present state, future direction.
 
 - **Nyanclaw anchor**: `8401ee3` (main) — last verified synthesis. PII scrubbed from git (phone placeholders). All prior clones purged.
 - **Sync tool**: `bash /home/runner/.openclaw-tools/sync-nyanclaw.sh` — lives outside workspace to avoid polluting OpenClaw git. Keeps exactly one shallow clone at `/tmp/nyanclaw-latest`, auto-purges stale copies, updates this anchor.
-- **Present**: 152 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries). Strike system restored (3-strike demotion, 5-min cooldown, passive health stats).
+- **Present**: 190 tests passing. Pipeline hardened (audit metrics, source tagging, input guards, error chain, context truncation, PII anonymization, log rotation at 1000 entries). Strike system restored (3-strike demotion, 5-min cooldown, passive health stats).
 - **Discord gateway**: `lib/discord-gateway.js` — event-driven bot (MESSAGE_CREATE), maps channels→sessionIds and users→callerIds for privilege gating, chunks responses at 2000 chars. Optional satellite: no DISCORD_BOT_TOKEN = no start. Health status exposed at `/health` endpoint.
+- **Discord Components v2**: `lib/discord-components.js` — buttons, selects (string/user/role/mentionable/channel), modals with up to 5 fields. One-time interaction IDs with TTL-based registry (15min expiry, 500 max entries, LRU eviction). Interaction results route back through void-pipeline as inbound messages. Synthesized from openclaw/openclaw PR #17419 patterns.
+- **SSRF Guard**: `lib/ssrf-guard.js` — blocks private/loopback/metadata/CGNAT IPs and dangerous hostnames (.internal, .local, metadata endpoints). Applied to web-search result filtering. DNS-aware validation available for outbound fetch paths.
 - **Boundary note**: vegapunk.js and its 4 Discord bots (Hermes, Thoth, Idris, Horus) belong to nyanbook.io's ledger backend — NOT OpenClaw. OpenClaw connects to nyanbook via Nyan API only. Do not absorb or reimplement bot infrastructure here.

@@ -1047,6 +1047,270 @@ test('does not strip version numbers or dates', () => {
 });
 
 // ═══════════════════════════════════════════
+// ssrf-guard.js
+// ═══════════════════════════════════════════
+const { validateURL, isPrivateIP, isBlockedHostname } = require('../lib/ssrf-guard');
+
+console.log('\n\x1b[1m── ssrf-guard ──\x1b[0m');
+
+console.log('\n  isPrivateIP:');
+test('localhost 127.0.0.1 is private', () => assert.ok(isPrivateIP('127.0.0.1')));
+test('10.x.x.x is private', () => assert.ok(isPrivateIP('10.0.0.1')));
+test('172.16.x.x is private', () => assert.ok(isPrivateIP('172.16.0.1')));
+test('192.168.x.x is private', () => assert.ok(isPrivateIP('192.168.1.1')));
+test('169.254.x.x (metadata) is private', () => assert.ok(isPrivateIP('169.254.169.254')));
+test('100.64.x.x (CGNAT) is private', () => assert.ok(isPrivateIP('100.64.0.1')));
+test('0.0.0.0 is private', () => assert.ok(isPrivateIP('0.0.0.0')));
+test('8.8.8.8 is not private', () => assert.ok(!isPrivateIP('8.8.8.8')));
+test('1.1.1.1 is not private', () => assert.ok(!isPrivateIP('1.1.1.1')));
+test('::1 (IPv6 loopback) is private', () => assert.ok(isPrivateIP('::1')));
+test('fe80:: (link-local) is private', () => assert.ok(isPrivateIP('fe80::1')));
+
+console.log('\n  isBlockedHostname:');
+test('localhost is blocked', () => assert.ok(isBlockedHostname('localhost')));
+test('metadata.google.internal is blocked', () => assert.ok(isBlockedHostname('metadata.google.internal')));
+test('.internal domains are blocked', () => assert.ok(isBlockedHostname('something.internal')));
+test('.local domains are blocked', () => assert.ok(isBlockedHostname('myhost.local')));
+test('google.com is not blocked', () => assert.ok(!isBlockedHostname('google.com')));
+
+console.log('\n  validateURL:');
+test('allows https URLs', () => {
+  const result = validateURL('https://api.example.com/data');
+  assert.ok(result.allowed);
+});
+test('allows http URLs', () => {
+  const result = validateURL('http://example.com/path');
+  assert.ok(result.allowed);
+});
+test('blocks file:// protocol', () => {
+  const result = validateURL('file:///etc/passwd');
+  assert.ok(!result.allowed);
+});
+test('blocks ftp:// protocol', () => {
+  const result = validateURL('ftp://evil.com/data');
+  assert.ok(!result.allowed);
+});
+test('blocks localhost URL', () => {
+  const result = validateURL('http://localhost:8080/admin');
+  assert.ok(!result.allowed);
+});
+test('blocks 127.0.0.1 URL', () => {
+  const result = validateURL('http://127.0.0.1/secret');
+  assert.ok(!result.allowed);
+});
+test('blocks metadata endpoint', () => {
+  const result = validateURL('http://169.254.169.254/latest/meta-data/');
+  assert.ok(!result.allowed);
+});
+test('blocks private RFC1918 10.x', () => {
+  const result = validateURL('http://10.0.0.1/internal');
+  assert.ok(!result.allowed);
+});
+test('rejects invalid URL', () => {
+  const result = validateURL('not a url');
+  assert.ok(!result.allowed);
+});
+
+// ═══════════════════════════════════════════
+// discord-components.js
+// ═══════════════════════════════════════════
+const {
+  buildComponentSpec,
+  consumeComponent,
+  peekComponent,
+  consumeModal,
+  registerComponent,
+  clearRegistry,
+  getRegistrySize,
+  COMPONENT_ID_PREFIX,
+  MODAL_ID_PREFIX,
+  REGISTRY_TTL_MS,
+} = require('../lib/discord-components');
+
+console.log('\n\x1b[1m── discord-components ──\x1b[0m');
+
+console.log('\n  registry:');
+test('registerComponent adds entry', () => {
+  clearRegistry();
+  registerComponent({ id: 'test-1', kind: 'button', label: 'Test' });
+  assert.strictEqual(getRegistrySize(), 1);
+  clearRegistry();
+});
+
+test('consumeComponent retrieves and removes entry (one-time)', () => {
+  clearRegistry();
+  registerComponent({ id: 'test-2', kind: 'button', label: 'Test' });
+  const entry = consumeComponent('test-2');
+  assert.ok(entry);
+  assert.strictEqual(entry.label, 'Test');
+  const again = consumeComponent('test-2');
+  assert.strictEqual(again, null, 'second consume should return null (one-time)');
+  clearRegistry();
+});
+
+test('consumeComponent returns null for unknown id', () => {
+  clearRegistry();
+  const entry = consumeComponent('nonexistent');
+  assert.strictEqual(entry, null);
+});
+
+test('consumeModal removes entry from registry', () => {
+  clearRegistry();
+  registerComponent({ id: 'modal-1', kind: 'modal', title: 'Test Form', fields: [] });
+  const entry = consumeModal('modal-1');
+  assert.ok(entry);
+  assert.strictEqual(entry.title, 'Test Form');
+  const again = consumeModal('modal-1');
+  assert.strictEqual(again, null);
+  clearRegistry();
+});
+
+test('peekComponent reads without removing', () => {
+  clearRegistry();
+  registerComponent({ id: 'peek-1', kind: 'button', label: 'Peek' });
+  const first = peekComponent('peek-1');
+  assert.ok(first);
+  const second = peekComponent('peek-1');
+  assert.ok(second, 'peekComponent should not remove entry');
+  assert.strictEqual(getRegistrySize(), 1);
+  clearRegistry();
+});
+
+test('consumeModal ignores non-modal entries', () => {
+  clearRegistry();
+  registerComponent({ id: 'btn-1', kind: 'button', label: 'Not Modal' });
+  const entry = consumeModal('btn-1');
+  assert.strictEqual(entry, null);
+  clearRegistry();
+});
+
+console.log('\n  buildComponentSpec:');
+test('returns null for invalid spec', () => {
+  assert.strictEqual(buildComponentSpec(null), null);
+  assert.strictEqual(buildComponentSpec('string'), null);
+});
+
+test('builds button actions block', () => {
+  clearRegistry();
+  const result = buildComponentSpec({
+    text: 'Choose one',
+    blocks: [
+      {
+        type: 'actions',
+        buttons: [
+          { label: 'Approve', style: 'success' },
+          { label: 'Decline', style: 'danger' },
+        ]
+      }
+    ]
+  });
+  assert.ok(result);
+  assert.strictEqual(result.content, 'Choose one');
+  assert.strictEqual(result.components.length, 1);
+  assert.strictEqual(result.entries.length, 2);
+  assert.strictEqual(result.entries[0].kind, 'button');
+  assert.strictEqual(result.entries[0].label, 'Approve');
+  assert.strictEqual(result.entries[1].label, 'Decline');
+  assert.ok(result.entries[0].id.startsWith(COMPONENT_ID_PREFIX));
+  clearRegistry();
+});
+
+test('builds select actions block', () => {
+  clearRegistry();
+  const result = buildComponentSpec({
+    blocks: [
+      {
+        type: 'actions',
+        select: {
+          type: 'string',
+          placeholder: 'Pick',
+          options: [
+            { label: 'A', value: 'a' },
+            { label: 'B', value: 'b' },
+          ]
+        }
+      }
+    ]
+  });
+  assert.ok(result);
+  assert.strictEqual(result.components.length, 1);
+  assert.strictEqual(result.entries.length, 1);
+  assert.strictEqual(result.entries[0].kind, 'select');
+  assert.strictEqual(result.entries[0].selectType, 'string');
+  clearRegistry();
+});
+
+test('builds modal with trigger button and stores modal object', () => {
+  clearRegistry();
+  const result = buildComponentSpec({
+    modal: {
+      title: 'Details',
+      triggerLabel: 'Open form',
+      fields: [
+        { label: 'Name', type: 'text' },
+        { label: 'Notes', type: 'text', style: 'paragraph' },
+      ]
+    }
+  });
+  assert.ok(result);
+  assert.ok(result.modal);
+  assert.strictEqual(result.modal.modalEntry.title, 'Details');
+  assert.strictEqual(result.modal.modalEntry.fields.length, 2);
+  assert.ok(result.modal.modalEntry.modal, 'modal builder object should be stored in entry');
+  assert.ok(result.entries.length >= 1);
+  const trigger = result.entries.find(e => e.kind === 'modal-trigger');
+  assert.ok(trigger);
+  assert.strictEqual(trigger.label, 'Open form');
+  clearRegistry();
+});
+
+test('builds combined buttons + modal spec', () => {
+  clearRegistry();
+  const result = buildComponentSpec({
+    text: 'Action required',
+    blocks: [
+      {
+        type: 'actions',
+        buttons: [{ label: 'Quick Yes' }]
+      }
+    ],
+    modal: {
+      title: 'Full Form',
+      fields: [{ label: 'Reason' }]
+    }
+  });
+  assert.ok(result);
+  assert.strictEqual(result.content, 'Action required');
+  assert.ok(result.components.length >= 2);
+  assert.ok(result.modal);
+  clearRegistry();
+});
+
+test('limits buttons to 5 per row', () => {
+  clearRegistry();
+  const buttons = [];
+  for (let i = 0; i < 8; i++) buttons.push({ label: `Btn ${i}` });
+  const result = buildComponentSpec({
+    blocks: [{ type: 'actions', buttons }]
+  });
+  assert.ok(result);
+  assert.ok(result.entries.length <= 5);
+  clearRegistry();
+});
+
+test('limits modal fields to 5', () => {
+  clearRegistry();
+  const fields = [];
+  for (let i = 0; i < 8; i++) fields.push({ label: `Field ${i}` });
+  const result = buildComponentSpec({
+    modal: { title: 'Big Form', fields }
+  });
+  assert.ok(result);
+  assert.ok(result.modal.modalEntry.fields.length <= 5);
+  clearRegistry();
+});
+
+// ═══════════════════════════════════════════
 // Summary
 // ═══════════════════════════════════════════
 console.log(`\n\x1b[1m── results ──\x1b[0m`);
