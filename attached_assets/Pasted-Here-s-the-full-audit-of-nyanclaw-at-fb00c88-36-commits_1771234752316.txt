@@ -1,0 +1,43 @@
+Here's the full audit of nyanclaw at fb00c88, 36 commits ahead:
+CRITICAL BUGS (will crash at runtime)
+1. void-pipeline.js — undefined variables t0, expertResult, sessionKey, options
+    * t0 is referenced on lines 333, 354, 361, 513 but never declared. Every request will throw ReferenceError: t0 is not defined.
+    * expertResult is used on line 423 (expertResult.context) but never declared. Any query that reaches the context injection block will crash.
+    * sessionKey is used on lines 521, 535 but never declared. The hooks and audit logging will crash.
+    * options is referenced on line 522 (options?.channel) but the destructured input uses different names.
+    * Fix: Add const t0 = Date.now(); at top of runPipeline. Call getContext(query) and assign it to expertResult. Derive sessionKey from sessionId (or use hashSessionId). Map options properly.
+2. test/run.js — imports DANGEROUS_PATTERNS from void-pipeline, but it's not exported
+    * Line 40 destructures DANGEROUS_PATTERNS but void-pipeline doesn't export it (only exports containsDangerousPattern function). The import silently becomes undefined but if any test tries to use it, it'll fail.
+3. llm-client.js — timeout lookups use dot notation on symbol keys
+    * PROVIDER_TIMEOUT_MS uses computed property keys ([PROVIDERS.MINIMAX] = 'minimax'), but the axios calls use PROVIDER_TIMEOUT_MS.MINIMAX (dot notation = literal key "MINIMAX"), not PROVIDER_TIMEOUT_MS['minimax']. All timeouts resolve to undefined, meaning axios uses its default (no timeout) — providers can hang forever.
+    * Fix: Use PROVIDER_TIMEOUT_MS[PROVIDERS.MINIMAX] or change the keys to literal uppercase strings.
+SECURITY ISSUES
+1. containsDangerousPattern only has 6 patterns — your OpenClaw blueprint blocks 33+. Missing: eval(), curl|sh, wget|bash, command substitution $(), backticks, env exfiltration (env, printenv, set), systemctl, kill, crontab, mkfs, mount, chown root, nc -l, nohup, screen, tmux, iptables, sshd, and more. Since nyanclaw doesn't have exec-watchtower, this is the only guard for prescribe mode.
+2. ssrf-guard.js — missing AWS/Azure/GCP metadata IPs
+    * Doesn't block 169.254.169.254 by hostname (only by IP range, which does cover it). But missing cloud-specific metadata hostnames: metadata.google.internal is there, but not 169.254.169.254 as a hostname check target, and no Azure IMDS (169.254.169.254:80 with Metadata: true header) or AWS token endpoint protection.
+    * DNS rebinding: the validateURLWithDNS swallows DNS resolution errors silently (empty catch on line 99). A DNS failure should block, not allow.
+3. No session memory cap — sessionMemories Map in memory-manager.js grows unbounded. The OpenClaw blueprint has a 500-session LRU cap. A burst of unique sessions could exhaust memory. The hourly TTL cleanup helps but doesn't prevent burst.
+FUNCTIONAL ISSUES
+1. void-pipeline.js — getContext() called but result unused
+    * Line 350: getContext('who are you nyan identity') is called and ctx.context is used for the identity shortcut. But for the main LLM path, getContext is never called — the expertResult variable that's supposed to hold it is undefined (see bug #1).
+2. intent-detector.js — detectIntentCategories exported but tests import detectIntents
+    * The module exports detectIntentCategories but test line 339 calls intentDetector.detectIntents — this is undefined. The test passes vacuously because intents.includes('core') || intents.length >= 0 — the second condition is always true (undefined.length is undefined, but >= 0 returns false, so the || evaluates the first which throws... actually undefined.includes would throw). Check if this test actually runs.
+3. No index.js entry point — package.json says "main": "index.js" but no index.js exists. The server can't start without it.
+STYLE / MINOR
+1. Duplicate PII stripping — stripPII is defined identically in both void-pipeline.js and hooks/manager.js. Should be shared from one location.
+2. ssrf-guard.js not wired — The new SSRF guard is committed but I don't see it imported/used anywhere (no require('./ssrf-guard') in pipeline, web-search, or nyan-api). It's dead code until integrated.
+3. Express 5.x — package.json has express@^5.2.1. Express 5 is still pre-release and has breaking API changes from v4 (no app.del(), different error handling, path syntax changes). Make sure your server code is compatible.
+WHAT'S SOLID
+* SSRF guard implementation itself is clean — proper IPv4/IPv6 range checks, CGNAT coverage, DNS-aware validation
+* Memory manager's phi-compressed episodic design is well-thought-out
+* Dynamic chain building and env detection are clean
+* Intent detector's compiled regex approach is good for O(n) matching
+* Discord gateway is clean — event-driven, proper chunking, session mapping
+* Test structure is good, just needs the import fixes
+RECOMMENDED PRIORITY
+1. Fix the 3 undefined variables in void-pipeline (blocks everything)
+2. Fix llm-client timeout key lookups (silently disables timeouts)
+3. Add index.js or update package.json main
+4. Wire ssrf-guard into web-search
+5. Harden containsDangerousPattern (sync with OpenClaw's 33+ patterns)
+6. Add session memory cap
