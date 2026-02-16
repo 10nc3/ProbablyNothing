@@ -55,16 +55,45 @@ function trustGate(req, res, next) {
   next();
 }
 
+const MAX_QUERY_LENGTH = 32000;
+const MAX_BODY_SIZE = '128kb';
+
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
-app.use(rateLimit({ windowMs: 60000, max: 60 }));
+app.use(express.json({ limit: MAX_BODY_SIZE }));
+const globalLimiter = rateLimit({ windowMs: 60000, max: 120 });
+const chatLimiter = rateLimit({
+  windowMs: 60000,
+  max: 20,
+  message: { error: 'chat rate limit exceeded — try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const writeLimiter = rateLimit({
+  windowMs: 60000,
+  max: 30,
+  message: { error: 'write rate limit exceeded — try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(globalLimiter);
 
 app.get('/health', (req, res) => {
-  res.json({
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  const trusted = isLocalhost(ip);
+
+  const publicHealth = {
     status: 'alive',
     name: 'openclaw',
+    uptime: process.uptime()
+  };
+
+  if (!trusted) return res.json(publicHealth);
+
+  res.json({
+    ...publicHealth,
     runtime: envReport?.runtime || 'unknown',
     modes: ['prescribe', 'scribe', 'describe'],
     chain: envReport?.chain || getActiveChain(),
@@ -73,8 +102,7 @@ app.get('/health', (req, res) => {
     strikes: getStrikeStatus(),
     ollama: envReport?.ollama?.available || false,
     nyanApi: envReport?.nyanApi || false,
-    discord: getDiscordStatus(),
-    uptime: process.uptime()
+    discord: getDiscordStatus()
   });
 });
 
@@ -114,9 +142,11 @@ app.get('/api/env', async (req, res) => {
   });
 });
 
-app.post('/api/chat', trustGate, async (req, res) => {
+app.post('/api/chat', chatLimiter, trustGate, async (req, res) => {
   const { message, provider, model, temperature, maxTokens, callerId, photos, documents } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
+  if (typeof message !== 'string') return res.status(400).json({ error: 'message must be a string' });
+  if (message.length > MAX_QUERY_LENGTH) return res.status(413).json({ error: `message exceeds ${MAX_QUERY_LENGTH} character limit` });
 
   const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
 
@@ -146,7 +176,7 @@ app.post('/api/chat', trustGate, async (req, res) => {
   }
 });
 
-app.post('/api/atomic', trustGate, async (req, res) => {
+app.post('/api/atomic', writeLimiter, trustGate, async (req, res) => {
   const { message, domain } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
   try {
@@ -157,7 +187,7 @@ app.post('/api/atomic', trustGate, async (req, res) => {
   }
 });
 
-app.post('/api/psi-ema', trustGate, async (req, res) => {
+app.post('/api/psi-ema', writeLimiter, trustGate, async (req, res) => {
   const { ticker } = req.body;
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
   try {
@@ -168,7 +198,7 @@ app.post('/api/psi-ema', trustGate, async (req, res) => {
   }
 });
 
-app.post('/api/seed-metric', trustGate, async (req, res) => {
+app.post('/api/seed-metric', writeLimiter, trustGate, async (req, res) => {
   const { city, year, landPrice, income, compare } = req.body;
   if (!city) {
     return res.status(400).json({ error: 'city is required. Optionally provide landPrice and income, or omit them to auto-fetch.' });
@@ -217,7 +247,7 @@ app.post('/api/seed-metric', trustGate, async (req, res) => {
   }
 });
 
-app.post('/api/search', async (req, res) => {
+app.post('/api/search', writeLimiter, async (req, res) => {
   const { query, count } = req.body;
   if (!query) return res.status(400).json({ error: 'query required' });
   try {
