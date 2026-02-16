@@ -19,6 +19,8 @@ const { measureAffordability, compareTimePeriods, autoSeedMetric, detectSeedMetr
 const { detectEnvironment } = require('./lib/env-detect');
 const { printBanner } = require('./lib/startup-tui');
 const { startDiscordGateway, stopDiscordGateway, getDiscordStatus } = require('./lib/discord-gateway');
+const { execForeground, execBackground, pollProcess, stopProcess, listProcesses, getRegistrySize: getExecRegistrySize } = require('./lib/exec-watchtower');
+const { runSwarm, abortSwarm, getSwarmStatus, listSwarms, getSwarmRegistrySize } = require('./lib/swarm-coordinator');
 
 const net = require('net');
 
@@ -102,7 +104,11 @@ app.get('/health', (req, res) => {
     strikes: getStrikeStatus(),
     ollama: envReport?.ollama?.available || false,
     nyanApi: envReport?.nyanApi || false,
-    discord: getDiscordStatus()
+    discord: getDiscordStatus(),
+    satellites: {
+      execWatchtower: { active: true, processes: getExecRegistrySize() },
+      swarmCoordinator: { active: true, swarms: getSwarmRegistrySize() }
+    }
   });
 });
 
@@ -270,13 +276,113 @@ app.get('/api/audit', trustGate, (req, res) => {
   });
 });
 
+app.post('/api/exec', writeLimiter, trustGate, async (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'exec restricted to trusted IPs' });
+
+  const { command, mode, timeout, env } = req.body;
+  if (!command) return res.status(400).json({ error: 'command required' });
+  if (typeof command !== 'string') return res.status(400).json({ error: 'command must be a string' });
+  if (command.length > MAX_QUERY_LENGTH) return res.status(413).json({ error: `command exceeds ${MAX_QUERY_LENGTH} character limit` });
+
+  try {
+    if (mode === 'background') {
+      const result = execBackground(command, { timeout, env });
+      if (result.error) return res.status(400).json(result);
+      return res.json(result);
+    }
+    const result = execForeground(command, { timeout, env });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/exec/status', trustGate, (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'restricted to trusted IPs' });
+
+  const { runId } = req.query;
+  if (runId) {
+    const status = pollProcess(runId);
+    if (!status) return res.status(404).json({ error: 'process not found' });
+    return res.json(status);
+  }
+  res.json({ processes: listProcesses(), count: getExecRegistrySize() });
+});
+
+app.post('/api/exec/stop', writeLimiter, trustGate, (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'restricted to trusted IPs' });
+
+  const { runId } = req.body;
+  if (!runId) return res.status(400).json({ error: 'runId required' });
+  const result = stopProcess(runId);
+  if (result.error) return res.status(404).json(result);
+  res.json(result);
+});
+
+app.post('/api/swarm', writeLimiter, trustGate, async (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'swarm restricted to trusted IPs' });
+
+  const { tasks, callerId, tokenBudget } = req.body;
+  if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+    return res.status(400).json({ error: 'tasks array required (each: { query, label })' });
+  }
+
+  const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
+
+  try {
+    const result = await runSwarm({
+      parentSessionId: sessionId,
+      callerId: callerId || null,
+      tasks,
+      chain: envReport?.chain?.length ? envReport.chain : undefined,
+      tokenBudget,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/swarm/status', trustGate, (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'restricted to trusted IPs' });
+
+  const { swarmId } = req.query;
+  if (swarmId) {
+    const status = getSwarmStatus(swarmId);
+    if (!status) return res.status(404).json({ error: 'swarm not found' });
+    return res.json(status);
+  }
+  res.json({ swarms: listSwarms(), count: getSwarmRegistrySize() });
+});
+
+app.post('/api/swarm/abort', writeLimiter, trustGate, (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  if (!isLocalhost(ip)) return res.status(403).json({ error: 'restricted to trusted IPs' });
+
+  const { swarmId } = req.body;
+  if (!swarmId) return res.status(400).json({ error: 'swarmId required' });
+
+  try {
+    const result = abortSwarm(swarmId);
+    res.json(result);
+  } catch (e) {
+    res.status(404).json({ error: e.message });
+  }
+});
+
 app.get('/api/modules', (req, res) => {
   const modules = [
     'llm-client', 'nyan-api', 'void-pipeline',
     'intent-detector', 'data-package', 'memory-manager',
     'mode-registry', 'stock-fetcher', 'financial-physics',
     'psi-ema', 'legal-analysis', 'web-search',
-    'env-detect', 'startup-tui', 'discord-gateway'
+    'env-detect', 'startup-tui', 'discord-gateway',
+    'exec-watchtower', 'swarm-coordinator'
   ];
   const status = {};
   for (const m of modules) {
@@ -312,12 +418,19 @@ async function boot() {
   startDiscordGateway({ chain: envReport.chain });
 }
 
+const { clearRegistry: clearExecRegistry } = require('./lib/exec-watchtower');
+const { clearSwarmRegistry } = require('./lib/swarm-coordinator');
+
 process.on('SIGINT', () => {
   stopDiscordGateway();
+  clearExecRegistry();
+  clearSwarmRegistry();
   process.exit(0);
 });
 process.on('SIGTERM', () => {
   stopDiscordGateway();
+  clearExecRegistry();
+  clearSwarmRegistry();
   process.exit(0);
 });
 
