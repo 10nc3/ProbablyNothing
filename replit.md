@@ -19,9 +19,14 @@ Key architectural features include:
 -   **Security Hardening**:
     -   **Localhost Trust Gate**: Differentiates between local and public IP requests, requiring authentication for public access.
     -   **Context Window Clamping**: Automatically adjusts `maxTokens` based on the LLM provider's context limits to prevent overflow.
-    -   **Exec Safety Guard**: Blocks dangerous commands in `prescribe` mode to prevent system-level damage.
+    -   **Exec Safety Guard**: Blocks 33+ dangerous command patterns in `prescribe` mode (rm -rf, curl|sh, eval, command substitution, env exfiltration, sudo, systemctl, kill, crontab, etc.).
     -   **Path Traversal Protection**: Ensures file paths remain within the designated workspace root.
     -   **Workspace Portability**: Allows overriding the workspace root for flexible deployment.
+    -   **Provider Timeout Guards**: Explicit axios timeouts per provider (60s MiniMax/OpenAI, 30s Groq, 90s Claude, 120s Ollama) to prevent hung pipelines.
+    -   **Input Size Limits**: 32K character max per query, 128KB JSON body limit. Type validation at entry.
+    -   **Health Endpoint Gating**: Public /health returns alive-check only; full diagnostics (chain, providers, strikes) restricted to trusted IPs.
+    -   **Session Memory Cap**: 500 max concurrent sessions with LRU eviction on overflow. Prevents memory exhaustion from session burst.
+    -   **Per-Route Rate Limits**: 20/min chat, 30/min write endpoints, 120/min global. Prevents abuse of expensive LLM calls.
 -   **Intent Detection and Context Management**: A consolidated `intent-detector.js` routes requests to appropriate MoE expert files (e.g., `IDENTITY.md`, `PHILOSOPHY.md`) and manages session memory.
 -   **Core Modules**: The `lib/` directory contains core functionalities including `llm-client.js` for multi-provider LLM routing, `nyan-api.js` for atomic logic, and `memory-manager.js` for session memory.
 -   **API Endpoints**: Provides endpoints for health checks, environment status, unified chat, atomic logic queries, financial analysis, and web search.
