@@ -421,6 +421,16 @@ async function boot() {
 const { clearRegistry: clearExecRegistry } = require('./lib/exec-watchtower');
 const { clearSwarmRegistry } = require('./lib/swarm-coordinator');
 
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.error(`[openclaw] unhandled rejection: ${msg}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(`[openclaw] uncaught exception: ${err.message}`);
+  console.error(err.stack);
+});
+
 process.on('SIGINT', () => {
   stopDiscordGateway();
   clearExecRegistry();
